@@ -16,10 +16,19 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npx electron-builder --win --publish never
+      # instalador e versão portátil em downloads separados (cada um com ~80 MB, em vez de um zip de 160 MB)
       - uses: actions/upload-artifact@v4
         with:
-          name: noronhaterm-windows
-          path: dist/*.exe
+          name: noronhaterm-windows-instalador
+          path: dist/*Setup*.exe
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noronhaterm-windows-portatil
+          path: |
+            dist/NoronhaTerm*.exe
+            !dist/*Setup*.exe
+          compression-level: 0
 
   linux:
     name: Linux
