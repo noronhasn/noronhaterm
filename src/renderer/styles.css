@@ -55,7 +55,9 @@ button.on { background: #5b2430; border-color: var(--danger); color: #ffb4ae; }
 .main { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
 .topbar { display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .tabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
-.tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; white-space: nowrap; max-width: 200px; }
+.tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; white-space: nowrap; flex: 0 1 auto; min-width: 90px; max-width: 240px; }
+.tab .tab-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tab .badge, .tab .x { flex: none; }
 .tab.active { border-color: var(--accent); background: #1f2a44; }
 .tab.dead { opacity: .55; }
 .tab.bc::after { content: '●'; color: var(--danger); font-size: 9px; }

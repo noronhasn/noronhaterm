@@ -792,7 +792,7 @@ function makePane({ name, protocol, hostId, adhoc }) {
 
 function makeTab(pane) {
   const badge = h('span', { class: 'badge' });
-  const label = h('span', {});
+  const label = h('span', { class: 'tab-label' });
   const x = h('span', { class: 'x', title: 'Fechar aba' }, '✕');
   const tabEl = h('div', { class: 'tab' }, badge, label, x);
   const el = h('div', { class: 'tabview' });
