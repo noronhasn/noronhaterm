@@ -14,6 +14,16 @@ npm run dist:win   # instalador Windows (rode no Windows)
 npm run dist:linux # AppImage + deb (rode no Linux)
 ```
 
+Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** gera os instaladores de **Windows** e de **Linux** (artefatos `noronhaterm-windows` e `noronhaterm-linux`).
+
+### Linux
+
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NoronhaTerm-0.3.0.deb`
+- AppImage: `chmod +x NoronhaTerm-0.3.0.AppImage && ./NoronhaTerm-0.3.0.AppImage`. Em Ubuntu 24.04 ou mais novo, se não abrir, use `./NoronhaTerm-0.3.0.AppImage --no-sandbox`.
+- Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
+- Serial: seu usuário precisa estar no grupo `dialout` (`sudo usermod -aG dialout $USER`, depois sair e entrar).
+
+
 Na primeira vez, crie um usuário e uma senha mestra (mínimo 8 caracteres). Cada usuário tem o seu próprio cofre.
 
 ## O que já tem
@@ -32,6 +42,8 @@ Na primeira vez, crie um usuário e uma senha mestra (mínimo 8 caracteres). Cad
 | Identidades | usuário + senha e/ou chave, reutilizável em vários hosts |
 | Pastas | árvore com subpastas, arrastar e soltar, herança de identidade / jump host / comandos iniciais |
 | Painéis divididos | arraste um host da lista para dentro do terminal: nas bordas divide (esquerda/direita/em cima/embaixo), no centro abre nova aba. Botões ◫ e ⬒ dividem repetindo a conexão atual. Divisores arrastáveis, grade 2×2 etc. |
+| Backup automático | menu ⋯ → *Backup automático do cofre*: copia os cofres (já criptografados) para uma pasta à sua escolha, como a do Google Drive para computador, OneDrive ou Dropbox. Você define a frequência (minutos, horas ou dias) e quantos backups manter. Roda enquanto o app está aberto |
+| Servidores TFTP e FTP | menu ⋯ → *Servidores TFTP / FTP*: pasta raiz à escolha, liga/desliga por botão, TFTP com blksize/tsize, FTP com usuário e senha (passivo e ativo), somente leitura opcional, log de atividade. Sem dependências externas; tudo preso à pasta raiz |
 | Outros | busca, favoritos, tags, conexão rápida (`user@host:22`), conectar em toda a pasta, multi-exec, importar `~/.ssh/config`, exportar/importar JSON |
 
 Atalhos: `Ctrl+Shift+C/V` copiar/colar, botão direito copia (se há seleção) ou cola, `Ctrl+Tab` troca de aba, `Ctrl+Shift+D` divide lado a lado, `Ctrl+Shift+E` divide empilhado, `Ctrl+Shift+W` fecha o painel (ou a aba, se for o último).

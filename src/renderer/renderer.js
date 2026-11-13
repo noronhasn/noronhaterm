@@ -642,6 +642,8 @@ $('#btnMore').onclick = () => {
       const r = await api.importData();
       if (r) { S = r.snapshot; renderTree(); toast(`${r.added} item(ns) importado(s)`, true); }
     }),
+    row('Backup automático do cofre…', backupDialog),
+    row('Servidores TFTP / FTP…', serversDialog),
     row('Alterar senha mestra…', async () => {
       const a = h('input', { type: 'password', autocomplete: 'new-password' });
       const b = h('input', { type: 'password', autocomplete: 'new-password' });
@@ -656,6 +658,116 @@ $('#btnMore').onclick = () => {
       }]);
     })), [{ label: 'Fechar', onClick: (c) => c(true) }]);
 };
+
+// ---------------------------------------------------------------- backup automático
+const UNITS = [['m', 'minutos', 1], ['h', 'horas', 60], ['d', 'dias', 1440]];
+function splitInterval(min) {
+  if (min % 1440 === 0) return [min / 1440, 'd'];
+  if (min % 60 === 0) return [min / 60, 'h'];
+  return [min, 'm'];
+}
+const toMinutes = (n, u) => Math.floor(Number(n)) * UNITS.find((x) => x[0] === u)[2];
+const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString('pt-BR'); } catch { return String(iso); } };
+
+async function backupDialog() {
+  const cur = await api.backupGet();
+  const [amount, unit] = splitInterval(cur.intervalMinutes);
+  const enabled = h('input', { type: 'checkbox', checked: cur.enabled });
+  const folder = h('input', { readonly: true, placeholder: 'Escolha a pasta (ex.: a do Google Drive para computador)' });
+  folder.value = cur.folder || '';
+  const pick = h('button', { type: 'button', onclick: async () => { const p = await api.backupPickFolder(); if (p) folder.value = p; } }, 'Escolher…');
+  const every = h('input', { type: 'number', min: '1', step: '1' }); every.value = String(amount);
+  const unitSel = sel(UNITS.map(([k, l]) => [k, l]), unit);
+  const keep = h('input', { type: 'number', min: '1', max: '500', step: '1' }); keep.value = String(cur.keep);
+  const status = h('div', { class: 'muted' });
+  const paint = (st) => {
+    status.textContent = st.lastError ? 'Último erro: ' + st.lastError
+      : st.lastAt ? `Último backup: ${fmtWhen(st.lastAt)} (${st.lastFiles} cofre(s))` : 'Nenhum backup feito ainda.';
+    status.style.color = st.lastError ? 'var(--danger)' : '';
+  };
+  paint(cur);
+  const read = () => ({ enabled: enabled.checked, folder: folder.value.trim(), intervalMinutes: toMinutes(every.value, unitSel.value), keep: Number(keep.value) });
+  await dialog('Backup automático', [
+    h('div', { class: 'hero' }, h('div', { class: 'hero-ic' }, '☁'), h('div', {},
+      h('div', { class: 'hero-t' }, 'Cópia automática do cofre'),
+      h('div', { class: 'muted' }, 'Escolha uma pasta sincronizada (Google Drive, OneDrive, Dropbox…) e o serviço envia sozinho.'))),
+    h('label', { class: 'check' }, enabled, 'Ligar o backup automático'),
+    field('Pasta de destino', h('div', { class: 'grid2', style: 'grid-template-columns:1fr auto' }, folder, pick)),
+    h('div', { class: 'grid3' }, field('Repetir a cada', every), field('Unidade', unitSel), field('Guardar os últimos', keep)),
+    status,
+    h('div', { class: 'muted' }, 'Os arquivos copiados continuam criptografados com a sua senha mestra. O backup roda enquanto o NoronhaTerm estiver aberto. Para restaurar, copie o arquivo .vault de volta para a pasta de dados do app.'),
+  ], [cancelBtn,
+    { label: 'Fazer backup agora', onClick: async () => {
+      await api.backupSet(read());
+      try { const r = await api.backupNow(); paint(r.state); toast(`Backup feito (${r.files} cofre(s))`, true); } catch (e) { paint(await api.backupGet()); throw e; }
+    } },
+    { label: 'Salvar', cls: 'primary', onClick: async (close) => {
+      const st = await api.backupSet(read());
+      toast(st.enabled ? 'Backup automático ligado' : 'Backup automático desligado', true);
+      close(true);
+    } }]);
+}
+
+// ---------------------------------------------------------------- servidores TFTP / FTP
+async function serversDialog() {
+  let st = await api.serversStatus();
+  const addrs = await api.serversAddresses().catch(() => []);
+  const c = st.config;
+  const root = h('input', { readonly: true, placeholder: 'Pasta que os equipamentos vão enxergar' }); root.value = c.root || '';
+  const pickRoot = h('button', { type: 'button', onclick: async () => { const p = await api.serversPickRoot(); if (p) root.value = p; } }, 'Escolher…');
+  const tOn = h('input', { type: 'checkbox', checked: c.tftp.enabled });
+  const tPort = h('input', { type: 'number', min: '1', max: '65535' }); tPort.value = String(c.tftp.port);
+  const tW = h('input', { type: 'checkbox', checked: c.tftp.allowWrite });
+  const fOn = h('input', { type: 'checkbox', checked: c.ftp.enabled });
+  const fPort = h('input', { type: 'number', min: '1', max: '65535' }); fPort.value = String(c.ftp.port);
+  const fUser = h('input', { autocomplete: 'off' }); fUser.value = c.ftp.user || '';
+  const fPass = h('input', { type: 'password', autocomplete: 'new-password', placeholder: c.ftp.hasPassword ? '(mantida — digite para trocar)' : 'defina uma senha' });
+  const fW = h('input', { type: 'checkbox', checked: c.ftp.allowWrite });
+  const fAnon = h('input', { type: 'checkbox', checked: c.ftp.anonymous });
+  const state = h('div', { class: 'muted' });
+  const log = h('textarea', { readonly: true, rows: '7', style: 'min-height:110px' });
+  const paint = (s) => {
+    st = s;
+    const line = (name, on, err) => (err ? `${name}: ERRO — ${err}` : on ? `${name}: ligado` : `${name}: desligado`);
+    state.textContent = line('TFTP', s.running.tftp, s.errors.tftp) + '   |   ' + line('FTP', s.running.ftp, s.errors.ftp);
+    state.style.color = s.errors.tftp || s.errors.ftp ? 'var(--danger)' : '';
+    log.value = s.logs.slice(-60).join('\n');
+    log.scrollTop = log.scrollHeight;
+  };
+  paint(st);
+  const read = () => ({
+    root: root.value.trim(),
+    tftp: { enabled: tOn.checked, port: Number(tPort.value), allowWrite: tW.checked },
+    ftp: { enabled: fOn.checked, port: Number(fPort.value), user: fUser.value, password: fPass.value, allowWrite: fW.checked, anonymous: fAnon.checked },
+  });
+  const card = (title, ...rows) => h('div', { class: 'adv', style: 'padding:10px 12px' }, h('div', { style: 'font-weight:600;margin-bottom:8px' }, title), h('div', { class: 'list' }, ...rows));
+  await dialog('Servidores TFTP e FTP', [
+    h('div', { class: 'hero' }, h('div', { class: 'hero-ic' }, '🗄'), h('div', {},
+      h('div', { class: 'hero-t' }, 'Servidores para equipamentos'),
+      h('div', { class: 'muted' }, addrs.length ? 'Neste computador use: ' + addrs.join('  ou  ') : 'Use o IP deste computador na rede.'))),
+    field('Pasta raiz (o que os equipamentos veem)', h('div', { class: 'grid2', style: 'grid-template-columns:1fr auto' }, root, pickRoot)),
+    card('TFTP (firmware e configuração de switches, CPEs, MikroTik)',
+      h('label', { class: 'check' }, tOn, 'Ligar o servidor TFTP'),
+      h('div', { class: 'grid2' }, field('Porta (padrão 69)', tPort), h('label', { class: 'check', style: 'align-self:end' }, tW, 'Permitir receber arquivos (gravar)')),
+      h('div', { class: 'muted' }, 'TFTP não tem senha: ligue só em rede confiável e desligue quando terminar.')),
+    card('FTP',
+      h('label', { class: 'check' }, fOn, 'Ligar o servidor FTP'),
+      h('div', { class: 'grid3' }, field('Porta (padrão 21)', fPort), field('Usuário', fUser), field('Senha', fPass)),
+      h('div', { class: 'grid2' }, h('label', { class: 'check' }, fW, 'Permitir enviar, apagar e renomear'), h('label', { class: 'check' }, fAnon, 'Aceitar acesso anônimo (sem senha)')),
+      h('div', { class: 'muted' }, 'Modo passivo usa as portas 50000–50100 (libere no firewall se o equipamento estiver em outra rede).')),
+    state,
+    field('Atividade', log),
+    h('div', { class: 'muted' }, 'O Windows pode perguntar sobre o firewall na primeira vez: permita para rede privada. No Linux, portas abaixo de 1024 exigem root; use 2121 e 6969.'),
+  ], [
+    { label: 'Atualizar atividade', onClick: async () => paint(await api.serversStatus()) },
+    { label: 'Fechar', onClick: (close) => close(true) },
+    { label: 'Salvar e aplicar', cls: 'primary', onClick: async () => {
+      paint(await api.serversApply(read()));
+      fPass.value = '';
+      if (st.errors.tftp || st.errors.ftp) throw new Error(st.errors.tftp || st.errors.ftp);
+      toast('Servidores atualizados', true);
+    } }]);
+}
 
 // ---------------------------------------------------------------- prompt vindo do processo principal
 api.on('prompt:ask', async (id, title, label, secret) => {

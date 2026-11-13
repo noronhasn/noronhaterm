@@ -9,9 +9,13 @@ const { Store } = require('../core/store');
 const { SshSession, connectOnly } = require('./ssh');
 const { TelnetSession } = require('./telnet');
 const { SerialSession, listPorts } = require('./serial');
+const { BackupScheduler } = require('./backup');
+const { ServerManager } = require('./servers');
 
 let win = null;
 let store = null;
+let backup = null;
+let servers = null;
 const sessions = new Map();
 const pendingPrompts = new Map();
 
@@ -205,6 +209,30 @@ function registerIpc() {
     const n = requireStore().importData(JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8')));
     return { added: n, snapshot: snapshot() };
   });
+  // ---- backup automático (copia os cofres já criptografados para uma pasta, ex.: a do Google Drive)
+  ipcMain.handle('backup:get', () => backup.get());
+  ipcMain.handle('backup:set', (_e, patch) => {
+    const p = patch && typeof patch === 'object' ? patch : {};
+    return backup.set({ enabled: p.enabled, folder: p.folder, intervalMinutes: p.intervalMinutes, keep: p.keep });
+  });
+  ipcMain.handle('backup:pickFolder', async () => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], title: 'Pasta de destino do backup' });
+    return r.canceled ? null : r.filePaths[0];
+  });
+  ipcMain.handle('backup:now', () => { const r = backup.runNow(); return { files: r.files.length, state: backup.get() }; });
+
+  // ---- servidores TFTP / FTP
+  ipcMain.handle('servers:status', () => servers.status());
+  ipcMain.handle('servers:apply', async (_e, patch) => {
+    const p = patch && typeof patch === 'object' ? patch : {};
+    return servers.apply({ root: p.root, tftp: p.tftp, ftp: p.ftp });
+  });
+  ipcMain.handle('servers:pickRoot', async () => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], title: 'Pasta raiz dos servidores TFTP/FTP' });
+    return r.canceled ? null : r.filePaths[0];
+  });
+  ipcMain.handle('servers:addresses', () => Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address));
+
   ipcMain.handle('data:importSshConfig', async () => {
     const def = path.join(os.homedir(), '.ssh');
     const r = await dialog.showOpenDialog(win, { defaultPath: path.join(def, 'config'), properties: ['openFile', 'showHiddenFiles'] });
@@ -224,10 +252,16 @@ const legacyData = path.join(app.getPath('appData'), 'termvault');
 if (fs.existsSync(legacyData)) app.setPath('userData', legacyData);
 
 app.whenReady().then(() => {
+  backup = new BackupScheduler({ configFile: path.join(app.getPath('userData'), 'backup.json'), vaultDir: vaultDir() });
+  backup.start();
+  servers = new ServerManager({ configFile: path.join(app.getPath('userData'), 'servers.json') });
+  servers.restart().catch((e) => console.error('servidores', e)); // religa o que estava ligado da última vez
   registerIpc();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
+
+app.on('before-quit', () => { if (servers) servers.stopAll().catch(() => {}); });
 
 app.on('window-all-closed', () => {
   for (const s of sessions.values()) { try { s.close(); } catch { /* ignora */ } }

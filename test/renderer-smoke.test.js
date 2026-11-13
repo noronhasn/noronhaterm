@@ -16,7 +16,7 @@ function setup() {
       tag, style: {}, className: '', value: '', textContent: '', hidden: false, nodeType: 1, children: [], _handlers: handlers,
       classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
       addEventListener(t, f) { (handlers[t] ||= []).push(f); },
-      append() {}, replaceChildren() {}, remove() {}, setAttribute() {}, focus() {}, contains: () => true, showModal() {}, close() {}, open: false,
+      append(...k) { this.children.push(...k); }, replaceChildren() {}, remove() {}, setAttribute() {}, focus() {}, contains: () => true, showModal() {}, close() {}, open: false,
       querySelector: () => mkEl('q'), querySelectorAll: () => [], closest: () => null,
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 600 }),
     };
@@ -36,6 +36,10 @@ function setup() {
     close: (id) => log.close.push(id),
     input: () => {}, resize: () => {}, lock: async () => {},
     on: (ch, cb) => { events[ch] = cb; },
+    backupGet: async () => { log.backup = (log.backup || 0) + 1; return { enabled: false, folder: '', intervalMinutes: 360, keep: 20, lastAt: null, lastError: null, lastFiles: 0 }; },
+    backupSet: async (p) => ({ ...p, running: !!p.enabled }), backupPickFolder: async () => '/tmp/x', backupNow: async () => ({ files: 1, state: { lastAt: new Date().toISOString(), lastFiles: 1 } }),
+    serversStatus: async () => { log.servers = (log.servers || 0) + 1; return { config: { root: '', tftp: { enabled: false, port: 69, allowWrite: true }, ftp: { enabled: false, port: 21, allowWrite: true, user: 'noronha', anonymous: false, hasPassword: false } }, running: { tftp: false, ftp: false }, errors: { tftp: null, ftp: null }, logs: [] }; },
+    serversApply: async () => ({}), serversPickRoot: async () => '/tmp/r', serversAddresses: async () => ['192.168.0.10'],
   };
 
   class Terminal {
@@ -207,6 +211,37 @@ test('renderer: novo host abre o formulário simplificado sem erro', async () =>
     await tick();
     const b = t.byId('#btnNewHost');
     if (b.onclick) { b.onclick(); await tick(); }
+  } finally { process.off('unhandledRejection', onRej); }
+  assert.deepEqual(errors.map(String), []);
+});
+
+function findButton(t, label) {
+  return t.created.find((e) => e.tag === 'button' && e.children.some((c) => c && c.nodeType === 3 && c.t === label));
+}
+
+test('renderer: telas de backup automático e servidores TFTP/FTP abrem pelo menu sem erro', async () => {
+  const errors = [];
+  const onRej = (e) => errors.push(e);
+  process.on('unhandledRejection', onRej);
+  try {
+    const t = setup();
+    await tick();
+    t.byId('#lockUser').value = 'u'; t.byId('#lockPass').value = 'senha-qualquer';
+    await t.byId('#lockForm')._handlers.submit[0](ev());
+    await tick();
+    t.byId('#btnMore').onclick();
+    await tick();
+    const bk = findButton(t, 'Backup automático do cofre…');
+    const sv = findButton(t, 'Servidores TFTP / FTP…');
+    assert.ok(bk, 'menu tem o item de backup');
+    assert.ok(sv, 'menu tem o item de servidores');
+    bk._handlers.click[0]();
+    await tick();
+    assert.equal(t.log.backup, 1, 'a tela de backup leu a configuração');
+    sv._handlers.click[0]();
+    await tick();
+    assert.equal(t.log.servers, 1, 'a tela de servidores leu o estado');
+    assert.ok(findButton(t, 'Fazer backup agora') && findButton(t, 'Salvar e aplicar'));
   } finally { process.off('unhandledRejection', onRej); }
   assert.deepEqual(errors.map(String), []);
 });

@@ -30,5 +30,15 @@ contextBridge.exposeInMainWorld('api', {
   importData: () => inv('data:import'),
   importSshConfig: () => inv('data:importSshConfig'),
 
+  backupGet: () => inv('backup:get'),
+  backupSet: (p) => inv('backup:set', p),
+  backupPickFolder: () => inv('backup:pickFolder'),
+  backupNow: () => inv('backup:now'),
+
+  serversStatus: () => inv('servers:status'),
+  serversApply: (p) => inv('servers:apply', p),
+  serversPickRoot: () => inv('servers:pickRoot'),
+  serversAddresses: () => inv('servers:addresses'),
+
   on: (ch, cb) => { if (EVENTS.has(ch)) ipcRenderer.on(ch, (_e, ...a) => cb(...a)); },
 });

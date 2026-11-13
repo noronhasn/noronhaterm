@@ -1,6 +1,6 @@
 {
   "name": "noronhaterm",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "NoronhaTerm — cliente SSH / Telnet / Serial com cofre de chaves e pastas de hosts",
   "main": "src/main/main.js",
   "license": "MIT",
@@ -8,7 +8,8 @@
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
     "dist": "electron-builder --win",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
@@ -31,6 +32,29 @@
       "target": [
         "nsis",
         "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network",
+      "maintainer": "Noronha <dev@noronha.local>",
+      "synopsis": "Cliente SSH, Telnet e Serial com cofre de chaves",
+      "artifactName": "NoronhaTerm-${version}.${ext}"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
       ]
     }
   },
