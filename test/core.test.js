@@ -272,3 +272,13 @@ test('chaves: importa .ppk (pública em claro) e bate o fingerprint com a chave 
   const s = newStore();
   assert.equal(s.importKey({ name: 'ppk', privateKey: ppk }).fingerprint, g.fingerprint);
 });
+
+test('normalizeAddress: tira zero à esquerda de IPv4 e deixa o resto como está', () => {
+  const { normalizeAddress } = require('../src/main/netutil');
+  assert.equal(normalizeAddress('198.19.0.07'), '198.19.0.7');
+  assert.equal(normalizeAddress(' 010.001.000.099 '), '10.1.0.99');
+  assert.equal(normalizeAddress('192.168.10.103'), '192.168.10.103');
+  assert.equal(normalizeAddress('300.1.1.1'), '300.1.1.1');
+  assert.equal(normalizeAddress('switch.exemplo.com'), 'switch.exemplo.com');
+  assert.equal(normalizeAddress('fe80::1'), 'fe80::1');
+});

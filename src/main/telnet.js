@@ -1,4 +1,5 @@
 'use strict';
+const { normalizeAddress } = require('./netutil');
 // Cliente Telnet com negociação IAC (ECHO, SGA, TTYPE, NAWS). Sem dependências.
 const net = require('net');
 
@@ -91,7 +92,7 @@ class TelnetSession {
 
   start() {
     return new Promise((resolve, reject) => {
-      const sock = net.connect({ host: this.host.address, port: this.host.port || 23 });
+      const sock = net.connect({ host: normalizeAddress(this.host.address), port: this.host.port || 23 });
       this.sock = sock;
       sock.setKeepAlive(true, 15000);
       sock.setTimeout(20000);

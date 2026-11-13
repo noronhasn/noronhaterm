@@ -36,7 +36,12 @@ class SerialSession {
       this.port.on('error', (e) => this.onStatus('Erro serial: ' + e.message));
       this.port.on('close', () => { if (!this.closed) { this.closed = true; this.onClose('Porta serial fechada'); } });
       this.port.open((err) => {
-        if (err) return reject(new Error(`Não foi possível abrir ${opts.path}: ${err.message}`));
+        if (err) {
+          const dica = /EACCES|permission/i.test(err.message) && process.platform === 'linux'
+            ? ' — sem permissão na porta. No terminal rode: sudo usermod -aG dialout $USER  (depois saia da sessão e entre de novo)'
+            : '';
+          return reject(new Error(`Não foi possível abrir ${opts.path}: ${err.message}${dica}`));
+        }
         this.onStatus(`${opts.path} aberta a ${opts.baudRate} ${opts.dataBits}${opts.parity[0].toUpperCase()}${opts.stopBits}`);
         (this.host.startupCommands || []).forEach((c, i) => setTimeout(() => this.write(c + '\r'), 300 * (i + 1)));
         resolve();

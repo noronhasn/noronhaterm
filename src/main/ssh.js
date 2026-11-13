@@ -1,4 +1,5 @@
 'use strict';
+const { normalizeAddress } = require('./netutil');
 // Sessão SSH (ssh2): shell interativo, jump hosts encadeados, túneis (local e SOCKS5), SFTP.
 const net = require('net');
 require('./dhfix').install(); // antes de qualquer require('ssh2'): ver dhfix.js
@@ -110,7 +111,7 @@ class SshSession {
       client.on('close', () => this._finish('Conexão encerrada'));
       if (i < chain.length - 1) {
         const next = chain[i + 1];
-        sock = await new Promise((res, rej) => client.forwardOut('127.0.0.1', 0, next.address, next.port || 22, (e, s) => (e ? rej(e) : res(s))));
+        sock = await new Promise((res, rej) => client.forwardOut('127.0.0.1', 0, normalizeAddress(next.address), next.port || 22, (e, s) => (e ? rej(e) : res(s))));
       }
     }
     this.conn = this.clients[this.clients.length - 1];
@@ -126,7 +127,7 @@ class SshSession {
       id = { ...(id || {}), username: String(user).trim(), useAgent: false };
     }
     const cfg = {
-      host: hop.address, port: hop.port || 22, username: id.username, sock,
+      host: normalizeAddress(hop.address), port: hop.port || 22, username: id.username, sock,
       readyTimeout: 25000, keepaliveInterval: 15000, tryKeyboard: true,
       hostVerifier: (key, cb) => this._verifyHostKey(hop, key).then(cb, () => cb(false)),
     };
@@ -269,7 +270,7 @@ async function connectOnly(opts) {
     await s._connect(c, chain[i], sock);
     if (i < chain.length - 1) {
       const n = chain[i + 1];
-      sock = await new Promise((res, rej) => c.forwardOut('127.0.0.1', 0, n.address, n.port || 22, (e, st) => (e ? rej(e) : res(st))));
+      sock = await new Promise((res, rej) => c.forwardOut('127.0.0.1', 0, normalizeAddress(n.address), n.port || 22, (e, st) => (e ? rej(e) : res(st))));
     }
   }
   s.conn = s.clients[s.clients.length - 1];

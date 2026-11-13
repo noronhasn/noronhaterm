@@ -18,8 +18,8 @@ Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** g
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.3.7.deb`
-- AppImage: `chmod +x NetDeck-0.3.7.AppImage && ./NetDeck-0.3.7.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.3.7.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.5.deb`
+- AppImage: `chmod +x NetDeck-0.4.5.AppImage && ./NetDeck-0.4.5.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.5.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: seu usuário precisa estar no grupo `dialout` (`sudo usermod -aG dialout $USER`, depois sair e entrar).
 
@@ -82,3 +82,6 @@ test/                 testes automatizados
 
 ## Restaurar backup
 Em **⋯ → Restaurar backup do cofre…** escolha o arquivo `.vault` (por exemplo, o baixado do Drive) e informe a senha mestra que valia naquele backup. O cofre atual é substituído e uma cópia dele fica guardada na pasta de dados.
+
+## Log de sessão
+Em **⋯ → Log de sessão…** ligue a gravação. Cada conexão aberta depois disso gera um arquivo `<host>_AAAAMMDD-HHMMSS.log` (sem cores nem códigos de controle, com a opção de hora em cada linha) na pasta escolhida (padrão: `Documentos\NetDeck\logs`). O log mostra o que apareceu no terminal; guarde a pasta com cuidado, pois pode conter configurações dos equipamentos.

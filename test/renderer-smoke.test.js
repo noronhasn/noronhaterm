@@ -38,7 +38,7 @@ function setup() {
     input: () => {}, resize: () => {}, lock: async () => {},
     on: (ch, cb) => { events[ch] = cb; },
     backupGet: async () => { log.backup = (log.backup || 0) + 1; return { enabled: false, folder: '', intervalMinutes: 360, keep: 20, lastAt: null, lastError: null, lastFiles: 0 }; },
-    backupSet: async (p) => ({ ...p, running: !!p.enabled }), backupPickFolder: async () => '/tmp/x', backupPickFile: async () => null, backupRestore: async () => ({ snapshot: {}, saved: null }), backupNow: async () => ({ files: 1, state: { lastAt: new Date().toISOString(), lastFiles: 1 } }),
+    backupSet: async (p) => ({ ...p, running: !!p.enabled }), backupPickFolder: async () => '/tmp/x', backupPickFile: async () => null, logsGet: async () => ({ enabled: false, folder: '', timestamps: false, effectiveFolder: '/tmp/logs' }), logsSet: async (p) => p, logsPickFolder: async () => null, logsOpenFolder: async () => {}, backupRestore: async () => ({ snapshot: {}, saved: null }), backupNow: async () => ({ files: 1, state: { lastAt: new Date().toISOString(), lastFiles: 1 } }),
     serversStatus: async () => { log.servers = (log.servers || 0) + 1; return { config: { root: '', tftp: { enabled: false, port: 69, allowWrite: true }, ftp: { enabled: false, port: 21, allowWrite: true, user: 'noronha', anonymous: false, hasPassword: false } }, running: { tftp: false, ftp: false }, errors: { tftp: null, ftp: null }, logs: [] }; },
     serversApply: async () => ({}), serversPickRoot: async () => '/tmp/r', serversAddresses: async () => ['192.168.0.10'],
   };

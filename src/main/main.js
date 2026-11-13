@@ -4,7 +4,7 @@ for (const st of [process.stdout, process.stderr]) { try { st.on('error', () => 
 process.on('uncaughtException', (e) => {
   try { require('fs').appendFileSync(require('path').join(require('os').tmpdir(), 'netdeck-erro.log'), `${new Date().toISOString()} ${e && e.stack || e}\n`); } catch { /* ignora */ }
 });
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -16,11 +16,14 @@ const { TelnetSession } = require('./telnet');
 const { SerialSession, listPorts } = require('./serial');
 const { BackupScheduler, restoreVault } = require('./backup');
 const { ServerManager } = require('./servers');
+const { SessionLogger } = require('./sessionlog');
 
 let win = null;
 let store = null;
 let backup = null;
 let servers = null;
+let sessionLog = null;
+const logs = new Map(); // sessionId -> arquivo de log aberto
 const sessions = new Map();
 const pendingPrompts = new Map();
 
@@ -111,14 +114,20 @@ function adhocHost(a) {
 function buildSession(resolved, cols, rows, id) {
   const common = {
     host: resolved, cols, rows,
-    onData: (d) => send('session:data', id, d),
-    onClose: (reason) => { sessions.delete(id); send('session:close', id, reason); },
-    onStatus: (msg) => send('session:status', id, msg),
+    onData: (d) => { const l = logs.get(id); if (l) l.write(d); send('session:data', id, d); },
+    onClose: (reason) => { closeLog(id, reason); sessions.delete(id); send('session:close', id, reason); },
+    onStatus: (msg) => { const l = logs.get(id); if (l) l.write('[' + msg + ']\r\n'); send('session:status', id, msg); },
   };
+  if (sessionLog) {
+    const l = sessionLog.open({ name: resolved.name, address: resolved.address || (resolved.serial && resolved.serial.port), protocol: resolved.protocol });
+    if (l) { logs.set(id, l); send('session:status', id, 'Gravando log em ' + l.file); }
+  }
   if (resolved.protocol === 'telnet') return new TelnetSession(common);
   if (resolved.protocol === 'serial') return new SerialSession(common);
   return new SshSession({ ...common, hostKeys, prompt: askRenderer });
 }
+
+function closeLog(id, reason) { const l = logs.get(id); if (l) { logs.delete(id); l.close(reason); } }
 
 const getSession = (id) => { const s = sessions.get(id); if (!s) throw new Error('Sessão não encontrada'); return s; };
 const getSsh = (id) => { const s = getSession(id); if (!(s instanceof SshSession)) throw new Error('Disponível só para sessões SSH'); return s; };
@@ -165,7 +174,7 @@ function registerIpc() {
     try {
       await s.start();
     } catch (e) {
-      sessions.delete(id);
+      sessions.delete(id); closeLog(id, 'falha ao conectar');
       try { s.close(); } catch { /* ignora */ }
       throw new Error(e.message || String(e));
     }
@@ -175,7 +184,7 @@ function registerIpc() {
 
   ipcMain.on('session:input', (_e, id, data) => { const s = sessions.get(id); if (s && typeof data === 'string') s.write(data); });
   ipcMain.on('session:resize', (_e, id, cols, rows) => { const s = sessions.get(id); if (s && cols > 0 && rows > 0) s.resize(cols, rows); });
-  ipcMain.on('session:close', (_e, id) => { const s = sessions.get(id); if (s) s.close(); sessions.delete(id); });
+  ipcMain.on('session:close', (_e, id) => { const s = sessions.get(id); if (s) s.close(); sessions.delete(id); closeLog(id, 'fechada pelo usuário'); });
   ipcMain.on('prompt:answer', (_e, id, value) => { const r = pendingPrompts.get(id); if (r) { pendingPrompts.delete(id); r(value); } });
 
   ipcMain.handle('serial:list', () => listPorts());
@@ -237,6 +246,16 @@ function registerIpc() {
     store = new Store(Vault.open(cur, password));
     return { snapshot: snapshot(), saved: saved ? path.basename(saved) : null };
   });
+  ipcMain.handle('logs:get', () => sessionLog.get());
+  ipcMain.handle('logs:set', (_e, p) => { const q = p && typeof p === 'object' ? p : {}; return sessionLog.set({ enabled: q.enabled, folder: q.folder, timestamps: q.timestamps }); });
+  ipcMain.handle('logs:pickFolder', async () => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], title: 'Pasta dos logs de sessão' });
+    return r.canceled ? null : r.filePaths[0];
+  });
+  ipcMain.handle('logs:openFolder', async () => {
+    const dir = sessionLog.folder(); fs.mkdirSync(dir, { recursive: true });
+    const err = await shell.openPath(dir); if (err) throw new Error(err);
+  });
   ipcMain.handle('backup:now', () => { const r = backup.runNow(); return { files: r.files.length, state: backup.get() }; });
 
   // ---- servidores TFTP / FTP
@@ -278,6 +297,7 @@ app.on('second-instance', () => {
 app.whenReady().then(() => {
   backup = new BackupScheduler({ configFile: path.join(app.getPath('userData'), 'backup.json'), vaultDir: vaultDir() });
   backup.start();
+  sessionLog = new SessionLogger({ configFile: path.join(app.getPath('userData'), 'sessionlog.json'), defaultFolder: path.join(app.getPath('documents'), 'NetDeck', 'logs') });
   servers = new ServerManager({ configFile: path.join(app.getPath('userData'), 'servers.json') });
   servers.restart().catch((e) => console.error('servidores', e)); // religa o que estava ligado da última vez
   registerIpc();
@@ -289,6 +309,7 @@ app.on('before-quit', () => { if (servers) servers.stopAll().catch(() => {}); })
 
 app.on('window-all-closed', () => {
   for (const s of sessions.values()) { try { s.close(); } catch { /* ignora */ } }
+  for (const id of [...logs.keys()]) closeLog(id, 'aplicativo fechado');
   if (store) store.vault.lock();
   if (process.platform !== 'darwin') app.quit();
 });

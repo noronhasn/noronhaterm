@@ -1,6 +1,6 @@
 'use strict';
 /* global Terminal, FitAddon */
-// Interface: bloqueio, árvore de pastas/hosts, abas de terminal, cofre (chaves e identidades), SFTP.
+// Interface: bloqueio, árvore de pastas/hosts, abas de terminal, User SSH (identidades), SFTP.
 // Tudo dentro de uma função: `const api` no escopo global conflita com window.api criado pelo preload
 // (propriedade não configurável) e causava "Identifier 'api' has already been declared".
 (() => {
@@ -143,7 +143,7 @@ function setCreating(v) {
   $('#lockPass2Wrap').hidden = !v;
   $('#lockSubmit').textContent = v ? 'Criar cofre' : 'Desbloquear';
   $('#lockToggle').textContent = v ? 'Já tenho usuário' : 'Criar novo usuário';
-  $('#lockHint').textContent = v ? 'A senha mestra protege todas as suas chaves e senhas. Se você a perder, não há como recuperar.' : 'Escolha o usuário e digite a senha mestra.';
+  $('#lockHint').textContent = v ? 'A senha protege todos os seus hosts e senhas. Se você a perder, não há como recuperar.' : 'Escolha o usuário e digite a senha.';
   $('#lockError').textContent = '';
 }
 
@@ -357,7 +357,9 @@ async function hostDialog(existing, folderId) {
     protocol: 'ssh', port: 22, tags: [], folderId: folderId || null, startupCommands: [], forwards: [], telnetEnter: 'crlf',
     serial: { port: '', baud: 9600, dataBits: 8, parity: 'none', stopBits: 1, flow: 'none' },
   };
-  const sr = d.serial || { port: '', baud: 9600, dataBits: 8, parity: 'none', stopBits: 1, flow: 'none' };
+  const isLinux = /Linux/i.test(navigator.userAgent || '') && !/Android/i.test(navigator.userAgent || '');
+  const DEFAULT_PORT = isLinux ? '/dev/ttyUSB0' : ''; // no Linux o adaptador USB-serial costuma ser /dev/ttyUSB0
+  const sr = d.serial || { port: DEFAULT_PORT, baud: 9600, dataBits: 8, parity: 'none', stopBits: 1, flow: 'none' };
   const i = {
     name: h('input', { value: d.name || '', placeholder: 'ex.: web-01' }),
     protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ['serial', 'Serial']], d.protocol),
@@ -388,6 +390,7 @@ async function hostDialog(existing, folderId) {
       try {
         const list = await api.serialList();
         ports.replaceChildren(...list.map((p) => h('option', { value: p.path }, p.manufacturer)));
+        if (list.length && (!i.sPort.value || i.sPort.value === DEFAULT_PORT)) i.sPort.value = list[0].path; // já preenche com a porta achada
         toast(list.length ? `${list.length} porta(s) encontrada(s)` : 'Nenhuma porta serial encontrada', true);
       } catch (e) { toast(errMsg(e)); }
     },
@@ -395,7 +398,7 @@ async function hostDialog(existing, folderId) {
 
   const net = h('div', { class: 'list' },
     h('div', { class: 'grid2' }, field('Porta', i.port), field('Jump host (ProxyJump)', i.jump)),
-    field('Identidade (usuário + senha/chave). Vazio = pergunta ao conectar', i.identity));
+    field('Identidade (usuário + senha). Vazio = pergunta ao conectar', i.identity));
   i.legacy = h('input', { type: 'checkbox', checked: d.legacyAlgorithms !== false });
   const sshOnly = h('div', { class: 'list' },
     h('label', { class: 'check' }, i.legacy, 'Aceitar algoritmos antigos (switches, CPEs e roteadores legados)'),
@@ -497,43 +500,24 @@ async function folderDialog(existing, parentId) {
   }]);
 }
 
-// ---------------------------------------------------------------- cofre: identidades e chaves
-async function vaultDialog(startTab = 'ident') {
-  let mode = startTab;
+// ---------------------------------------------------------------- User SSH: identidades
+async function vaultDialog() {
   const box = h('div', { class: 'list' });
-  const segI = h('button', { onclick: () => { mode = 'ident'; draw(); } }, 'Identidades');
-  const segK = h('button', { onclick: () => { mode = 'keys'; draw(); } }, 'Chaves SSH');
-
   function draw() {
-    segI.className = mode === 'ident' ? 'on' : '';
-    segK.className = mode === 'keys' ? 'on' : '';
     box.replaceChildren();
-    if (mode === 'ident') {
-      box.append(h('div', {}, h('button', { class: 'primary', onclick: async () => { await identityDialog(null); draw(); } }, '＋ Nova identidade')));
-      if (!S.identities.length) box.append(h('div', { class: 'muted' }, 'Identidade = usuário + (senha e/ou chave). Defina uma vez e reutilize em vários hosts.'));
-      S.identities.forEach((x) => {
-        const k = S.keys.find((y) => y.id === x.keyId);
-        const used = S.hosts.filter((hh) => hh.identityId === x.id).length;
-        box.append(h('div', { class: 'item' },
-          h('span', { class: 'grow' }, `${x.name} — ${x.username || '(sem usuário)'}`, ' ',
-            h('code', {}, [x.hasPassword ? 'senha' : '', k ? 'chave: ' + k.name : '', x.useAgent ? 'agent' : ''].filter(Boolean).join(' · ') + ` · ${used} host(s)`)),
-          h('button', { onclick: async () => { await identityDialog(x); draw(); } }, 'Editar'),
-          h('button', { class: 'danger', onclick: async () => { if (await confirmBox(`Excluir a identidade “${x.name}”? Os hosts que a usam voltarão a herdar da pasta.`)) { await call('removeIdentity', x.id); draw(); } } }, 'Excluir')));
-      });
-    } else {
-      box.append(h('div', { class: 'seg' },
-        h('button', { class: 'primary', onclick: async () => { await keyGenDialog(); draw(); } }, '＋ Gerar chave'),
-        h('button', { onclick: async () => { await keyImportDialog(); draw(); } }, 'Importar chave')));
-      if (!S.keys.length) box.append(h('div', { class: 'muted' }, 'Nenhuma chave. Gere uma Ed25519 (recomendada) ou importe a sua.'));
-      S.keys.forEach((k) => box.append(h('div', { class: 'item' },
-        h('span', { class: 'grow' }, `${k.name} `, h('code', {}, `${k.type} · ${k.fingerprint}`)),
-        h('button', { onclick: async () => { await navigator.clipboard.writeText(await api.publicKey(k.id)); toast('Chave pública copiada', true); } }, 'Copiar pública'),
-        h('button', { onclick: () => installKeyDialog(k) }, 'Instalar no host'),
-        h('button', { class: 'danger', onclick: async () => { if (await confirmBox(`Excluir a chave “${k.name}”? Isso não pode ser desfeito.`)) { await call('removeKey', k.id); draw(); } } }, 'Excluir'))));
-    }
+    box.append(h('div', {}, h('button', { class: 'primary', onclick: async () => { await identityDialog(null); draw(); } }, '＋ Nova identidade')));
+    if (!S.identities.length) box.append(h('div', { class: 'muted' }, 'Identidade = usuário + senha. Defina uma vez e reutilize em vários hosts.'));
+    S.identities.forEach((x) => {
+      const used = S.hosts.filter((hh) => hh.identityId === x.id).length;
+      box.append(h('div', { class: 'item' },
+        h('span', { class: 'grow' }, `${x.name} — ${x.username || '(sem usuário)'}`, ' ',
+          h('code', {}, [x.hasPassword ? 'senha' : '', x.keyId ? 'chave' : ''].filter(Boolean).join(' · ') + ` · ${used} host(s)`)),
+        h('button', { onclick: async () => { await identityDialog(x); draw(); } }, 'Editar'),
+        h('button', { class: 'danger', onclick: async () => { if (await confirmBox(`Excluir a identidade “${x.name}”? Os hosts que a usam voltarão a herdar da pasta.`)) { await call('removeIdentity', x.id); draw(); } } }, 'Excluir')));
+    });
   }
   draw();
-  await dialog('Cofre: identidades e chaves', [h('div', { class: 'seg' }, segI, segK), box], [{ label: 'Fechar', onClick: (c) => c(true) }]);
+  await dialog('User SSH: identidades', [box], [{ label: 'Fechar', onClick: (c) => c(true) }]);
 }
 
 async function identityDialog(existing) {
@@ -541,21 +525,18 @@ async function identityDialog(existing) {
     name: h('input', { value: existing ? existing.name : '', placeholder: 'ex.: root produção' }),
     user: h('input', { value: existing ? existing.username : '' }),
     pass: h('input', { type: 'password', autocomplete: 'new-password', placeholder: existing && existing.hasPassword ? '(mantida — digite para trocar)' : '' }),
-    key: sel([['', '(nenhuma)'], ...S.keys.map((k) => [k.id, k.name])], existing ? existing.keyId || '' : ''),
-    agent: h('input', { type: 'checkbox', checked: !!(existing && existing.useAgent) }),
   };
   const clear = h('input', { type: 'checkbox' });
   const body = [
     h('div', { class: 'grid2' }, field('Nome', i.name), field('Usuário', i.user)),
-    h('div', { class: 'grid2' }, field('Senha', i.pass), field('Chave SSH', i.key)),
-    h('label', { class: 'check' }, i.agent, 'Também tentar o ssh-agent / Pageant / OpenSSH Agent'),
+    field('Senha', i.pass),
     existing && existing.hasPassword ? h('label', { class: 'check' }, clear, 'Remover a senha salva') : null,
-    h('div', { class: 'muted' }, 'Sem senha nem chave, o app pergunta a senha a cada conexão (sem salvar).'),
+    h('div', { class: 'muted' }, 'Sem senha salva, o app pergunta a senha a cada conexão (sem salvar).'),
   ];
   await dialog(existing ? 'Editar identidade' : 'Nova identidade', body, [cancelBtn, {
     label: 'Salvar', cls: 'primary',
     onClick: async (close) => {
-      const patch = { name: i.name.value.trim(), username: i.user.value.trim(), keyId: i.key.value || null, useAgent: i.agent.checked };
+      const patch = { name: i.name.value.trim(), username: i.user.value.trim() };
       if (i.pass.value) patch.password = i.pass.value;
       if (clear.checked) patch.password = '';
       if (existing) await call('updateIdentity', existing.id, patch); else await call('addIdentity', patch);
@@ -564,96 +545,28 @@ async function identityDialog(existing) {
   }]);
 }
 
-async function keyGenDialog() {
-  const i = {
-    name: h('input', { placeholder: 'ex.: meu-notebook' }),
-    type: sel([['ed25519', 'Ed25519 (recomendada)'], ['rsa', 'RSA'], ['ecdsa', 'ECDSA P-256'], ['ecdsa384', 'ECDSA P-384'], ['ecdsa521', 'ECDSA P-521']], 'ed25519'),
-    bits: sel([['2048', '2048'], ['3072', '3072'], ['4096', '4096'], ['8192', '8192 (lento)']], '4096'),
-    comment: h('input', { placeholder: 'ex.: voce@empresa' }),
-  };
-  const bitsF = field('Tamanho (RSA)', i.bits);
-  bitsF.hidden = true;
-  i.type.onchange = () => { bitsF.hidden = i.type.value !== 'rsa'; };
-  await dialog('Gerar chave SSH', [
-    h('div', { class: 'grid2' }, field('Nome', i.name), field('Tipo', i.type)),
-    bitsF, field('Comentário', i.comment),
-    h('div', { class: 'muted' }, 'A chave é criada aqui e guardada apenas no cofre criptografado. RSA 4096 pode levar alguns segundos.'),
-  ], [cancelBtn, {
-    label: 'Gerar', cls: 'primary',
-    onClick: async (close) => {
-      await call('generateKey', { name: i.name.value.trim(), type: i.type.value, bits: Number(i.bits.value), comment: i.comment.value.trim() });
-      toast('Chave gerada', true);
-      close(true);
-    },
-  }]);
-}
-
-async function keyImportDialog() {
-  const i = {
-    name: h('input', { placeholder: 'ex.: id_rsa do servidor' }),
-    pem: h('textarea', { placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----\n…', style: 'min-height:140px' }),
-    pass: h('input', { type: 'password', autocomplete: 'new-password' }),
-    file: h('input', { type: 'file' }),
-  };
-  i.file.onchange = async () => {
-    const f = i.file.files[0];
-    if (f) { i.pem.value = await f.text(); if (!i.name.value) i.name.value = f.name; }
-  };
-  await dialog('Importar chave privada', [
-    field('Nome', i.name), field('Arquivo (id_rsa, id_ed25519, .pem)', i.file), field('ou cole o conteúdo', i.pem),
-    field('Passphrase (se a chave for protegida)', i.pass),
-    h('div', { class: 'muted' }, 'Aceita OpenSSH, PEM (RSA/ECDSA/Ed25519) e .ppk do PuTTY. Se uma .ppk for recusada na conexão, converta no PuTTYgen (Conversions → Export OpenSSH key).'),
-  ], [cancelBtn, {
-    label: 'Importar', cls: 'primary',
-    onClick: async (close) => {
-      await call('importKey', { name: i.name.value.trim(), privateKey: i.pem.value, passphrase: i.pass.value });
-      toast('Chave importada', true);
-      close(true);
-    },
-  }]);
-}
-
-async function installKeyDialog(k) {
-  const target = sel(S.hosts.filter((x) => x.protocol === 'ssh').map((x) => [x.id, x.name]), '');
-  if (!S.hosts.some((x) => x.protocol === 'ssh')) return toast('Cadastre um host SSH primeiro');
-  await dialog('Instalar chave pública no servidor', [
-    h('div', {}, `A chave “${k.name}” será adicionada ao ~/.ssh/authorized_keys do host, usando a identidade dele para entrar (ex.: senha).`),
-    field('Host', target),
-  ], [cancelBtn, {
-    label: 'Instalar', cls: 'primary',
-    onClick: async (close) => { await api.copyId(target.value, k.id); toast('Chave instalada', true); close(true); },
-  }]);
-}
-
 // ---------------------------------------------------------------- mais opções
 $('#btnMore').onclick = () => {
   const row =(label, fn) => h('button', { style: 'text-align:left', onclick: async () => { try { await fn(); } catch (e) { toast(errMsg(e)); } } }, label);
   dialog('Opções', h('div', { class: 'list' },
-    row('Importar hosts do ~/.ssh/config…', async () => {
-      const r = await api.importSshConfig();
-      if (r) { S = r.snapshot; renderTree(); toast(`${r.hosts} host(s) importado(s)`, true); }
-    }),
-    row('Exportar pastas/hosts (sem senhas e chaves)…', async () => { const p = await api.exportData(false); if (p) toast('Exportado: ' + p, true); }),
-    row('Exportar TUDO, inclusive senhas e chaves (arquivo sensível!)…', async () => {
-      if (!(await confirmBox('O arquivo exportado terá senhas e chaves privadas em texto puro. Guarde-o com muito cuidado e apague depois.', 'Exportar mesmo assim'))) return;
-      const p = await api.exportData(true); if (p) toast('Exportado: ' + p, true);
-    }),
+    row('Exportar pastas/hosts (sem senhas)…', async () => { const p = await api.exportData(false); if (p) toast('Exportado: ' + p, true); }),
     row('Importar JSON exportado…', async () => {
       const r = await api.importData();
       if (r) { S = r.snapshot; renderTree(); toast(`${r.added} item(ns) importado(s)`, true); }
     }),
     row('Backup automático do cofre…', backupDialog),
+    row('Log de sessão (gravar o terminal em arquivo)…', logDialog),
     row('Restaurar backup do cofre…', restoreDialog),
     row('Servidores TFTP / FTP…', serversDialog),
-    row('Alterar senha mestra…', async () => {
+    row('Alterar senha…', async () => {
       const a = h('input', { type: 'password', autocomplete: 'new-password' });
       const b = h('input', { type: 'password', autocomplete: 'new-password' });
-      await dialog('Alterar senha mestra', [field('Nova senha (mín. 8 caracteres)', a), field('Confirmar', b)], [cancelBtn, {
+      await dialog('Alterar senha', [field('Nova senha (mín. 8 caracteres)', a), field('Confirmar', b)], [cancelBtn, {
         label: 'Alterar', cls: 'primary',
         onClick: async (close) => {
           if (a.value !== b.value) throw new Error('As senhas não conferem');
           await api.changePassword(a.value);
-          toast('Senha mestra alterada', true);
+          toast('Senha alterada', true);
           close(true);
         },
       }]);
@@ -670,15 +583,40 @@ function splitInterval(min) {
 const toMinutes = (n, u) => Math.floor(Number(n)) * UNITS.find((x) => x[0] === u)[2];
 const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString('pt-BR'); } catch { return String(iso); } };
 
+async function logDialog() {
+  const cur = await api.logsGet();
+  const enabled = h('input', { type: 'checkbox', checked: cur.enabled });
+  const ts = h('input', { type: 'checkbox', checked: cur.timestamps });
+  const folder = h('input', { readonly: true, placeholder: cur.effectiveFolder });
+  folder.value = cur.folder || '';
+  const pick = h('button', { type: 'button', onclick: async () => { const p = await api.logsPickFolder(); if (p) folder.value = p; } }, 'Escolher…');
+  const openBtn = h('button', { type: 'button', onclick: async () => { try { await api.logsOpenFolder(); } catch (e) { toast(errMsg(e)); } } }, 'Abrir pasta de logs');
+  await dialog('Log de sessão', [
+    h('div', { class: 'muted' }, 'Grava em um arquivo de texto tudo o que aparece no terminal (sem cores), um arquivo por conexão, com o nome do host e a data. Vale para as conexões abertas DEPOIS de ligar.'),
+    h('label', { class: 'check' }, enabled, ' Gravar o log das sessões'),
+    h('label', { class: 'check' }, ts, ' Colocar a hora no começo de cada linha'),
+    field('Pasta dos logs (vazio = ' + cur.effectiveFolder + ')', h('div', { class: 'grid2', style: 'grid-template-columns:1fr auto' }, folder, pick)),
+    openBtn,
+    h('div', { class: 'muted' }, 'Atenção: o log guarda o que foi exibido, inclusive configurações dos equipamentos. Senhas digitadas no terminal normalmente não aparecem, mas guarde a pasta com cuidado.'),
+  ], [cancelBtn, {
+    label: 'Salvar', cls: 'primary',
+    onClick: async (close) => {
+      await api.logsSet({ enabled: enabled.checked, timestamps: ts.checked, folder: folder.value });
+      toast(enabled.checked ? 'Log de sessão ligado' : 'Log de sessão desligado', true);
+      close(true);
+    },
+  }]);
+}
+
 async function restoreDialog() {
   const file = await api.backupPickFile();
   if (!file) return;
   const name = file.split(/[\\/]/).pop();
-  const pw = h('input', { type: 'password', autocomplete: 'off', placeholder: 'senha mestra daquele backup' });
+  const pw = h('input', { type: 'password', autocomplete: 'off', placeholder: 'senha daquele backup' });
   await dialog('Restaurar backup', [
     h('div', { class: 'muted' }, 'Arquivo: ' + name),
-    h('div', { class: 'muted' }, 'O cofre atual será substituído pelo backup (uma cópia dele fica guardada na pasta de dados). Use a senha mestra que valia quando o backup foi feito.'),
-    field('Senha mestra do backup', pw),
+    h('div', { class: 'muted' }, 'O cofre atual será substituído pelo backup (uma cópia dele fica guardada na pasta de dados). Use a senha que valia quando o backup foi feito.'),
+    field('Senha do backup', pw),
   ], [cancelBtn, {
     label: 'Restaurar', cls: 'primary',
     onClick: async (close) => {
@@ -716,7 +654,7 @@ async function backupDialog() {
     field('Pasta de destino', h('div', { class: 'grid2', style: 'grid-template-columns:1fr auto' }, folder, pick)),
     h('div', { class: 'grid3' }, field('Repetir a cada', every), field('Unidade', unitSel), field('Guardar os últimos', keep)),
     status,
-    h('div', { class: 'muted' }, 'Os arquivos copiados continuam criptografados com a sua senha mestra. O backup roda enquanto o NetDeck estiver aberto. Para restaurar, copie o arquivo .vault de volta para a pasta de dados do app.'),
+    h('div', { class: 'muted' }, 'Os arquivos copiados continuam criptografados com a sua senha. O backup roda enquanto o NetDeck estiver aberto. Para restaurar, copie o arquivo .vault de volta para a pasta de dados do app.'),
   ], [cancelBtn,
     { label: 'Fazer backup agora', onClick: async () => {
       await api.backupSet(read());
@@ -814,7 +752,9 @@ function setEmpty() { $('#empty').hidden = tabList.length > 0; }
 // Fonte do terminal (botão "Aa"): família + tamanho + altura da linha, lembrados neste computador.
 const FONTS = ['Cascadia Mono', 'Cascadia Code', 'Consolas', 'Courier New', 'Lucida Console', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Hack', 'Ubuntu Mono', 'DejaVu Sans Mono'];
 const FONT_FALLBACK = "'DejaVu Sans Mono',Consolas,monospace";
-const FONT_DEFAULT = { family: 'Cascadia Mono', size: 14, lineHeight: 1, theme: 'padrao' };
+const FONT_DEFAULT = { family: 'Cascadia Mono', size: 14, lineHeight: 1, theme: 'padrao', scrollback: 10000 };
+const SCROLLBACKS = [1000, 5000, 10000, 20000, 50000, 100000, 200000];
+const clampScroll = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 ? Math.min(200000, Math.max(1000, n)) : FONT_DEFAULT.scrollback; };
 // Cores do texto/fundo do terminal (as 16 cores ANSI continuam as do THEME)
 const COLOR_THEMES = {
   padrao: ['Padrão (azul escuro)', { background: '#0d0f13', foreground: '#d7dae0', cursor: '#4f8cff', selectionBackground: '#2f4a80' }],
@@ -832,7 +772,7 @@ function fontPrefs() {
   const lh = Math.min(1.6, Math.max(1, Number(o.lineHeight) || FONT_DEFAULT.lineHeight));
   const family = typeof o.family === 'string' && /^[\w .-]{1,60}$/.test(o.family) ? o.family : FONT_DEFAULT.family;
   const theme = COLOR_THEMES[o.theme] ? o.theme : FONT_DEFAULT.theme;
-  return { family, size, lineHeight: lh, theme };
+  return { family, size, lineHeight: lh, theme, scrollback: clampScroll(o.scrollback) };
 }
 const fontStack = (family) => "'" + family + "'," + FONT_FALLBACK;
 function applyFont(prefs) {
@@ -841,6 +781,7 @@ function applyFont(prefs) {
     p.term.options.fontFamily = fontStack(prefs.family);
     p.term.options.fontSize = prefs.size;
     p.term.options.lineHeight = prefs.lineHeight;
+    p.term.options.scrollback = clampScroll(prefs.scrollback);
     p.term.options.theme = themeFor(prefs.theme);
     p.el.style.background = themeFor(prefs.theme).background;
   }
@@ -858,8 +799,9 @@ $('#btnFont').onclick = async () => {
   const theme = sel(Object.entries(COLOR_THEMES).map(([k, v]) => [k, v[0]]), cur.theme);
   const size = h('input', { type: 'number', min: '8', max: '40', step: '1' }); size.value = String(cur.size);
   const lh = h('input', { type: 'number', min: '1', max: '1.6', step: '0.05' }); lh.value = String(cur.lineHeight);
+  const scroll = sel(SCROLLBACKS.map((n) => [String(n), n.toLocaleString('pt-BR') + ' linhas']), String(SCROLLBACKS.includes(cur.scrollback) ? cur.scrollback : FONT_DEFAULT.scrollback));
   const preview = h('div', { class: 'font-preview' }, 'admin@MikroTik > /ip address print\n0123456789 O0 Il1 {}[]()');
-  const read = () => ({ family: custom.value.trim() || family.value, size: Number(size.value), lineHeight: Number(lh.value), theme: theme.value });
+  const read = () => ({ family: custom.value.trim() || family.value, size: Number(size.value), lineHeight: Number(lh.value), theme: theme.value, scrollback: Number(scroll.value) });
   const refresh = () => {
     const f = read();
     preview.style.fontFamily = fontStack(/^[\w .-]{1,60}$/.test(f.family) ? f.family : FONT_DEFAULT.family);
@@ -873,8 +815,9 @@ $('#btnFont').onclick = async () => {
     h('div', { class: 'grid2' }, field('Fonte', family), field('Outra fonte (opcional)', custom)),
     h('div', { class: 'grid2' }, field('Tamanho (8–40)', size), field('Altura da linha (1–1.6)', lh)),
     field('Cores do texto e do fundo', theme),
+    field('Histórico para rolar (linhas guardadas por terminal)', scroll),
     preview,
-    h('div', { class: 'muted' }, 'Só aparecem fontes instaladas no Windows. Atalhos no terminal: Ctrl + roda do mouse, Ctrl + "+" / "-", Ctrl + 0 (padrão).'),
+    h('div', { class: 'muted' }, 'Só aparecem fontes instaladas no Windows. Mais linhas de histórico usam mais memória. Atalhos no terminal: Ctrl + roda do mouse, Ctrl + "+" / "-", Ctrl + 0 (padrão).'),
   ], [cancelBtn,
     { label: 'Padrão', onClick: async (close) => { applyFont({ ...FONT_DEFAULT }); close(true); } },
     { label: 'Aplicar', cls: 'primary', onClick: async (close) => { applyFont(sanitizeFont(read())); close(true); } },
@@ -885,7 +828,7 @@ function sanitizeFont(f) {
   const lineHeight = Math.min(1.6, Math.max(1, Number(f.lineHeight) || 1));
   const family = /^[\w .-]{1,60}$/.test(f.family) ? f.family : FONT_DEFAULT.family;
   const theme = COLOR_THEMES[f.theme] ? f.theme : FONT_DEFAULT.theme;
-  return { family, size, lineHeight, theme };
+  return { family, size, lineHeight, theme, scrollback: clampScroll(f.scrollback) };
 }
 
 function makePane({ name, protocol, hostId, adhoc }) {
@@ -893,7 +836,7 @@ function makePane({ name, protocol, hostId, adhoc }) {
   const fp = fontPrefs();
   const term = new Terminal({
     fontFamily: fontStack(fp.family), fontSize: fp.size, lineHeight: fp.lineHeight, cursorBlink: true,
-    scrollback: 10000, theme: themeFor(fp.theme), allowProposedApi: false,
+    scrollback: fp.scrollback, theme: themeFor(fp.theme), allowProposedApi: false,
   });
   el.style.background = themeFor(fp.theme).background;
   const fit = new FitAddon.FitAddon();
