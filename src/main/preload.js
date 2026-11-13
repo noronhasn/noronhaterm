@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('api', {
   backupGet: () => inv('backup:get'),
   backupSet: (p) => inv('backup:set', p),
   backupPickFolder: () => inv('backup:pickFolder'),
+  backupPickFile: () => inv('backup:pickFile'),
+  backupRestore: (file, pw) => inv('backup:restore', file, pw),
   backupNow: () => inv('backup:now'),
 
   serversStatus: () => inv('servers:status'),

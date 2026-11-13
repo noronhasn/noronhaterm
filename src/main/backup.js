@@ -3,6 +3,7 @@
 // Dropbox ou um pendrive). Copia os arquivos .vault JÁ CRIPTOGRAFADOS; sem a senha mestra ninguém os abre.
 const fs = require('fs');
 const path = require('path');
+const { Vault } = require('../core/vault');
 
 const DEFAULTS = { enabled: false, folder: '', intervalMinutes: 360, keep: 20, lastAt: null, lastError: null, lastFiles: 0 };
 const MIN_INTERVAL = 1;
@@ -71,6 +72,24 @@ function runBackup({ vaultDir, folder, keep = 20, now = new Date() }) {
   return { files: copied, removed, at: now.toISOString() };
 }
 
+// Restaura um backup (.vault) no lugar do cofre `dest`. Antes de trocar, confere se o arquivo abre com a senha
+// informada e guarda o cofre atual como <dest>.antes-AAAAMMDD-HHMMSS. Devolve o caminho dessa cópia (ou null).
+function restoreVault({ src, dest, password, now = new Date() }) {
+  if (!src || !fs.existsSync(src) || !fs.statSync(src).isFile()) throw new Error('Arquivo de backup não encontrado');
+  const tmp = dest + '.restaurando';
+  fs.copyFileSync(src, tmp);
+  try {
+    Vault.open(tmp, password).lock(); // senha errada / arquivo inválido lança erro aqui, antes de mexer no cofre atual
+  } catch (e) {
+    fs.rmSync(tmp, { force: true });
+    throw e;
+  }
+  let saved = null;
+  if (fs.existsSync(dest)) { saved = `${dest}.antes-${stamp(now)}`; fs.renameSync(dest, saved); }
+  fs.renameSync(tmp, dest);
+  return saved;
+}
+
 class BackupScheduler {
   constructor({ configFile, vaultDir, onChange = () => {}, setIntervalFn = setInterval, clearIntervalFn = clearInterval }) {
     this.configFile = configFile;
@@ -118,4 +137,4 @@ class BackupScheduler {
   }
 }
 
-module.exports = { BackupScheduler, runBackup, loadConfig, saveConfig, sanitize, checkFolder, stamp };
+module.exports = { restoreVault, BackupScheduler, runBackup, loadConfig, saveConfig, sanitize, checkFolder, stamp };

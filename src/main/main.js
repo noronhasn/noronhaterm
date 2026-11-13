@@ -1,4 +1,9 @@
 'use strict';
+// Aberto pelo menu não há terminal: escrever em stdout/stderr pode dar EPIPE/EIO e derrubar o app. Ignora esses erros.
+for (const st of [process.stdout, process.stderr]) { try { st.on('error', () => {}); } catch { /* sem stream */ } }
+process.on('uncaughtException', (e) => {
+  try { require('fs').appendFileSync(require('path').join(require('os').tmpdir(), 'netdeck-erro.log'), `${new Date().toISOString()} ${e && e.stack || e}\n`); } catch { /* ignora */ }
+});
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -9,7 +14,7 @@ const { Store } = require('../core/store');
 const { SshSession, connectOnly } = require('./ssh');
 const { TelnetSession } = require('./telnet');
 const { SerialSession, listPorts } = require('./serial');
-const { BackupScheduler } = require('./backup');
+const { BackupScheduler, restoreVault } = require('./backup');
 const { ServerManager } = require('./servers');
 
 let win = null;
@@ -29,7 +34,7 @@ const requireStore = () => { if (!store) throw new Error('Cofre bloqueado'); ret
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1280, height: 800, minWidth: 900, minHeight: 560, backgroundColor: '#14161b', title: 'NetDeck',
+    width: 1280, height: 800, minWidth: 900, minHeight: 560, backgroundColor: '#14161b', title: 'NetDeck', icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.setMenuBarVisibility(false);
@@ -220,6 +225,18 @@ function registerIpc() {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], title: 'Pasta de destino do backup' });
     return r.canceled ? null : r.filePaths[0];
   });
+  ipcMain.handle('backup:pickFile', async () => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openFile'], title: 'Escolha o arquivo de backup (.vault)', filters: [{ name: 'Cofre NetDeck', extensions: ['vault'] }, { name: 'Todos', extensions: ['*'] }] });
+    return r.canceled ? null : r.filePaths[0];
+  });
+  // restaura um backup no lugar do cofre do usuário atual; exige a senha mestra DAQUELE backup
+  ipcMain.handle('backup:restore', (_e, file, password) => {
+    const cur = requireStore().vault.file;
+    const saved = restoreVault({ src: file, dest: cur, password });
+    store.vault.lock();
+    store = new Store(Vault.open(cur, password));
+    return { snapshot: snapshot(), saved: saved ? path.basename(saved) : null };
+  });
   ipcMain.handle('backup:now', () => { const r = backup.runNow(); return { files: r.files.length, state: backup.get() }; });
 
   // ---- servidores TFTP / FTP
@@ -251,6 +268,12 @@ function registerIpc() {
 // para o usuário não perder hosts, chaves e senhas ao trocar de nome.
 const legacyData = path.join(app.getPath('appData'), 'termvault');
 if (fs.existsSync(legacyData)) app.setPath('userData', legacyData);
+
+// uma só instância: clicar de novo no ícone traz a janela existente para frente
+if (!app.requestSingleInstanceLock()) { app.quit(); }
+app.on('second-instance', () => {
+  if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } else if (app.isReady()) createWindow();
+});
 
 app.whenReady().then(() => {
   backup = new BackupScheduler({ configFile: path.join(app.getPath('userData'), 'backup.json'), vaultDir: vaultDir() });

@@ -1,6 +1,6 @@
 {
   "name": "netdeck",
-  "version": "0.3.1",
+  "version": "0.3.5",
   "description": "NetDeck — cliente SSH / Telnet / Serial com cofre de chaves e pastas de hosts",
   "main": "src/main/main.js",
   "license": "MIT",
@@ -26,13 +26,15 @@
     "productName": "NetDeck",
     "files": [
       "src/**/*",
-      "package.json"
+      "package.json",
+      "build/icon.png"
     ],
     "win": {
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "icon": "build/icon.ico"
     },
     "linux": {
       "target": [
@@ -42,7 +44,16 @@
       "category": "Network",
       "maintainer": "NetDeck <dev@netdeck.local>",
       "synopsis": "Cliente SSH, Telnet e Serial com cofre de chaves",
-      "artifactName": "NetDeck-${version}.${ext}"
+      "artifactName": "NetDeck-${version}.${ext}",
+      "executableArgs": [
+        "--no-sandbox"
+      ],
+      "icon": "build/icon.png",
+      "desktop": {
+        "StartupWMClass": "NetDeck",
+        "Exec": "sh -c \"/opt/NetDeck/netdeck --no-sandbox\"",
+        "Terminal": "false"
+      }
     },
     "deb": {
       "depends": [
@@ -55,7 +66,8 @@
         "libatspi2.0-0",
         "libuuid1",
         "libsecret-1-0"
-      ]
+      ],
+      "afterInstall": "build/after-install.sh"
     }
   },
   "author": "NetDeck <dev@netdeck.local>",

@@ -18,8 +18,8 @@ Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** g
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.3.1.deb`
-- AppImage: `chmod +x NetDeck-0.3.1.AppImage && ./NetDeck-0.3.1.AppImage`. Em Ubuntu 24.04 ou mais novo, se não abrir, use `./NetDeck-0.3.1.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.3.5.deb`
+- AppImage: `chmod +x NetDeck-0.3.5.AppImage && ./NetDeck-0.3.5.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.3.5.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: seu usuário precisa estar no grupo `dialout` (`sudo usermod -aG dialout $USER`, depois sair e entrar).
 
@@ -79,3 +79,6 @@ test/                 testes automatizados
 - Sincronização entre dispositivos e pastas compartilhadas em equipe (exige backend e criptografia por chave pública)
 - Reordenar itens da árvore arrastando (hoje ordena por nome)
 - Importar sessões do PuTTY / MobaXterm
+
+## Restaurar backup
+Em **⋯ → Restaurar backup do cofre…** escolha o arquivo `.vault` (por exemplo, o baixado do Drive) e informe a senha mestra que valia naquele backup. O cofre atual é substituído e uma cópia dele fica guardada na pasta de dados.

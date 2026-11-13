@@ -99,3 +99,23 @@ test('backup: falha grava o erro no status e relança', () => {
   assert.throws(() => sch.runNow(), /não existe/);
   assert.match(sch.get().lastError, /não existe/);
 });
+
+test('restaurar: troca o cofre pelo backup, guarda o atual e exige a senha do backup', () => {
+  const { Vault } = require('../src/core/vault');
+  const { restoreVault } = require('../src/main/backup');
+  const base = tmp();
+  const cur = path.join(base, 'noronha.vault');
+  const bkp = path.join(base, 'noronha-20261113-100000.vault');
+  const kdf = { N: 1 << 10, r: 8, p: 1 };
+  const old = Vault.create(bkp, 'senha-antiga-123', { marca: 'do-backup' }, kdf); old.lock();
+  const now = Vault.create(cur, 'senha-nova-456', { marca: 'atual' }, kdf); now.lock();
+
+  assert.throws(() => restoreVault({ src: bkp, dest: cur, password: 'errada-errada' }));
+  assert.equal(Vault.open(cur, 'senha-nova-456').data.marca, 'atual', 'senha errada não mexe no cofre atual');
+  assert.ok(!fs.existsSync(cur + '.restaurando'), 'sem sobra temporária');
+
+  const saved = restoreVault({ src: bkp, dest: cur, password: 'senha-antiga-123', now: new Date(2026, 10, 13, 15, 0, 0) });
+  assert.equal(Vault.open(cur, 'senha-antiga-123').data.marca, 'do-backup');
+  assert.equal(Vault.open(saved, 'senha-nova-456').data.marca, 'atual', 'o cofre anterior ficou guardado');
+  assert.throws(() => restoreVault({ src: path.join(base, 'nada.vault'), dest: cur, password: 'x' }), /não encontrado/);
+});

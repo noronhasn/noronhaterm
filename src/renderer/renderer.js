@@ -643,6 +643,7 @@ $('#btnMore').onclick = () => {
       if (r) { S = r.snapshot; renderTree(); toast(`${r.added} item(ns) importado(s)`, true); }
     }),
     row('Backup automático do cofre…', backupDialog),
+    row('Restaurar backup do cofre…', restoreDialog),
     row('Servidores TFTP / FTP…', serversDialog),
     row('Alterar senha mestra…', async () => {
       const a = h('input', { type: 'password', autocomplete: 'new-password' });
@@ -668,6 +669,26 @@ function splitInterval(min) {
 }
 const toMinutes = (n, u) => Math.floor(Number(n)) * UNITS.find((x) => x[0] === u)[2];
 const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString('pt-BR'); } catch { return String(iso); } };
+
+async function restoreDialog() {
+  const file = await api.backupPickFile();
+  if (!file) return;
+  const name = file.split(/[\\/]/).pop();
+  const pw = h('input', { type: 'password', autocomplete: 'off', placeholder: 'senha mestra daquele backup' });
+  await dialog('Restaurar backup', [
+    h('div', { class: 'muted' }, 'Arquivo: ' + name),
+    h('div', { class: 'muted' }, 'O cofre atual será substituído pelo backup (uma cópia dele fica guardada na pasta de dados). Use a senha mestra que valia quando o backup foi feito.'),
+    field('Senha mestra do backup', pw),
+  ], [cancelBtn, {
+    label: 'Restaurar', cls: 'primary',
+    onClick: async (close) => {
+      const r = await api.backupRestore(file, pw.value);
+      S = r.snapshot; renderTree();
+      toast('Backup restaurado' + (r.saved ? ' (cofre anterior guardado como ' + r.saved + ')' : ''), true);
+      close(true);
+    },
+  }]);
+}
 
 async function backupDialog() {
   const cur = await api.backupGet();
