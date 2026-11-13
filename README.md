@@ -18,8 +18,8 @@ Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** g
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.3.6.deb`
-- AppImage: `chmod +x NetDeck-0.3.6.AppImage && ./NetDeck-0.3.6.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.3.6.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.3.7.deb`
+- AppImage: `chmod +x NetDeck-0.3.7.AppImage && ./NetDeck-0.3.7.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.3.7.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: seu usuário precisa estar no grupo `dialout` (`sudo usermod -aG dialout $USER`, depois sair e entrar).
 

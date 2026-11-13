@@ -98,12 +98,15 @@ test('renderer: abas, divisões, soltar host, fechar painéis e reconectar sem e
     assert.deepEqual(t.log.open[0].adhoc && t.log.open[0].adhoc.address, '10.0.0.1');
 
     // dividir lado a lado e empilhado repete a conexão do painel ativo
-    t.byId('#btnSplitH').onclick();
+    const kd = t.winListeners.keydown.at(-1);
+    kd(ev({ ctrlKey: true, shiftKey: true, code: 'KeyD' }));
     await tick();
-    t.byId('#btnSplitV').onclick();
+    kd(ev({ ctrlKey: true, shiftKey: true, code: 'KeyE' }));
     await tick();
     assert.equal(t.log.open.length, 3, 'três conexões abertas na mesma aba');
     assert.equal(new Set(t.log.open.map((o) => o.id)).size, 3, 'ids de sessão únicos');
+    t.byId('#btnSplitH').onclick(); // o botão abre a escolha de host (diálogo), sem erro
+    await tick();
 
     // soltar um host da lista fora de qualquer painel -> nova aba
     const drop = t.byId('#terms')._handlers.drop[0];

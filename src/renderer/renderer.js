@@ -1201,12 +1201,44 @@ $('#btnReconnect').onclick = () => {
   activePane.term.focus();
 };
 
-// Dividir o painel atual repetindo a mesma conexão (para outro host, arraste da lista).
+// Dividir o painel atual: Ctrl+Shift+D / E repetem o mesmo host; os botões ◫ ⬒ deixam ESCOLHER o host.
 const splitHere = (side) => {
   const p = activePane;
   if (!p) return toast('Abra uma conexão primeiro');
   splitOpen(p, side, { name: p.name, protocol: p.protocol, hostId: p.hostId, adhoc: p.adhoc });
 };
+
+async function splitPick(side) {
+  const p = activePane;
+  if (!p) return toast('Abra uma conexão primeiro');
+  let chosen = { same: true };
+  const q = h('input', { type: 'search', placeholder: 'Buscar host… (duplo clique abre direto)' });
+  const list = h('div', { class: 'list pick-list' });
+  const entries = () => [
+    { same: true, label: '⧉ Mesmo host (' + p.name + ')' },
+    ...S.hosts.slice().sort((a, b) => a.name.localeCompare(b.name)).map((x) => ({ host: x, label: x.name + '   [' + x.protocol.toUpperCase() + ']' })),
+  ];
+  const render = () => {
+    list.replaceChildren();
+    const term = q.value.trim().toLowerCase();
+    entries().filter((e) => e.same || !term || e.label.toLowerCase().includes(term) || (e.host.host || '').toLowerCase().includes(term)).forEach((e) => {
+      const on = (chosen.same && e.same) || (chosen.host && e.host && chosen.host.id === e.host.id);
+      list.append(h('button', {
+        type: 'button', class: on ? 'pick on' : 'pick', style: 'text-align:left',
+        onclick: () => { chosen = e; render(); },
+        ondblclick: (ev) => { chosen = e; ev.target.closest('dialog').querySelector('button.primary').click(); },
+      }, e.label));
+    });
+  };
+  q.addEventListener('input', render);
+  render();
+  const ok = await dialog(side === 'right' ? 'Dividir lado a lado' : 'Dividir empilhado',
+    [h('div', { class: 'muted' }, 'Escolha qual host abrir no novo painel.'), field('Host', q), list],
+    [cancelBtn, { label: 'Dividir', cls: 'primary', onClick: (c) => c(true) }]);
+  if (!ok) return;
+  if (chosen.same) splitHere(side);
+  else splitOpen(p, side, { name: chosen.host.name, protocol: chosen.host.protocol, hostId: chosen.host.id });
+}
 // Botões da barra superior nunca ficam com o foco do teclado: assim o Enter/Espaço digitado no terminal não
 // aciona por engano "↻ reconectar" ou "dividir". Clique vindo do teclado tem detail === 0 e é ignorado.
 const topbarEl = $('.topbar');
@@ -1215,8 +1247,8 @@ topbarEl.addEventListener('click', (e) => {
   if (e.target.closest && e.target.closest('button') && e.detail === 0) { e.preventDefault(); e.stopPropagation(); }
 }, true);
 
-$('#btnSplitH').onclick = () => splitHere('right');
-$('#btnSplitV').onclick = () => splitHere('bottom');
+$('#btnSplitH').onclick = () => splitPick('right');
+$('#btnSplitV').onclick = () => splitPick('bottom');
 
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.shiftKey && e.code === 'KeyW' && activePane) { closePane(activePane); e.preventDefault(); }
