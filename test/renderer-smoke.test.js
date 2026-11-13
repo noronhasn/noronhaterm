@@ -30,6 +30,7 @@ function setup() {
   const events = {};
   const hostRow = { id: 'h1', name: 'sw1', protocol: 'ssh', folderId: null, address: '1.1.1.1', tags: [] };
   const api = {
+    version: async () => '9.9.9',
     users: async () => ['u'],
     unlock: async () => ({ folders: [], hosts: [hostRow], identities: [], keys: [] }),
     open: async (o) => { log.open.push(o); return { id: o.id, snapshot: null }; },

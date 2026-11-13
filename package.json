@@ -1,7 +1,7 @@
 {
-  "name": "noronhaterm",
-  "version": "0.3.0",
-  "description": "NoronhaTerm — cliente SSH / Telnet / Serial com cofre de chaves e pastas de hosts",
+  "name": "netdeck",
+  "version": "0.3.1",
+  "description": "NetDeck — cliente SSH / Telnet / Serial com cofre de chaves e pastas de hosts",
   "main": "src/main/main.js",
   "license": "MIT",
   "scripts": {
@@ -22,8 +22,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.noronha.term",
-    "productName": "NoronhaTerm",
+    "appId": "com.netdeck.app",
+    "productName": "NetDeck",
     "files": [
       "src/**/*",
       "package.json"
@@ -40,9 +40,9 @@
         "deb"
       ],
       "category": "Network",
-      "maintainer": "Noronha <dev@noronha.local>",
+      "maintainer": "NetDeck <dev@netdeck.local>",
       "synopsis": "Cliente SSH, Telnet e Serial com cofre de chaves",
-      "artifactName": "NoronhaTerm-${version}.${ext}"
+      "artifactName": "NetDeck-${version}.${ext}"
     },
     "deb": {
       "depends": [
@@ -58,6 +58,6 @@
       ]
     }
   },
-  "author": "Noronha <dev@noronha.local>",
-  "homepage": "https://example.com/noronhaterm"
+  "author": "NetDeck <dev@netdeck.local>",
+  "homepage": "https://github.com/noronhasn/netdeck"
 }

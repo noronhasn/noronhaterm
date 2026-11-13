@@ -29,7 +29,7 @@ const requireStore = () => { if (!store) throw new Error('Cofre bloqueado'); ret
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1280, height: 800, minWidth: 900, minHeight: 560, backgroundColor: '#14161b', title: 'NoronhaTerm',
+    width: 1280, height: 800, minWidth: 900, minHeight: 560, backgroundColor: '#14161b', title: 'NetDeck',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.setMenuBarVisibility(false);
@@ -119,6 +119,7 @@ const getSession = (id) => { const s = sessions.get(id); if (!s) throw new Error
 const getSsh = (id) => { const s = getSession(id); if (!(s instanceof SshSession)) throw new Error('Disponível só para sessões SSH'); return s; };
 
 function registerIpc() {
+  ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('users:list', () => {
     fs.mkdirSync(vaultDir(), { recursive: true });
     return fs.readdirSync(vaultDir()).filter((f) => f.endsWith('.vault')).map((f) => f.slice(0, -6)).sort();
@@ -198,7 +199,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('data:export', async (_e, includeSecrets) => {
-    const r = await dialog.showSaveDialog(win, { defaultPath: 'noronhaterm-export.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
+    const r = await dialog.showSaveDialog(win, { defaultPath: 'netdeck-export.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
     if (r.canceled) return null;
     fs.writeFileSync(r.filePath, JSON.stringify(requireStore().exportData({ includeSecrets: !!includeSecrets }), null, 2), { mode: 0o600 });
     return r.filePath;

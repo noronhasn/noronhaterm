@@ -19,14 +19,14 @@ jobs:
       # instalador e versão portátil em downloads separados (cada um com ~80 MB, em vez de um zip de 160 MB)
       - uses: actions/upload-artifact@v4
         with:
-          name: noronhaterm-windows-instalador
+          name: netdeck-windows-instalador
           path: dist/*Setup*.exe
           compression-level: 0
       - uses: actions/upload-artifact@v4
         with:
-          name: noronhaterm-windows-portatil
+          name: netdeck-windows-portatil
           path: |
-            dist/NoronhaTerm*.exe
+            dist/NetDeck*.exe
             !dist/*Setup*.exe
           compression-level: 0
 
@@ -43,7 +43,7 @@ jobs:
       - run: npx electron-builder --linux --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: noronhaterm-linux
+          name: netdeck-linux
           path: |
             dist/*.AppImage
             dist/*.deb

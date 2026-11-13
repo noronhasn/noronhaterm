@@ -207,7 +207,7 @@ $('#btnIdle').onclick = async () => {
   input.value = String(idleMinutes());
   await dialog('Bloqueio automático', [
     field('Bloquear o cofre após quantos minutos sem uso? (0 = nunca bloquear)', input),
-    h('div', { class: 'muted' }, 'Isto só afeta o cofre do NoronhaTerm. As sessões abertas continuam conectadas; quem derruba por inatividade é o próprio equipamento.'),
+    h('div', { class: 'muted' }, 'Isto só afeta o cofre do NetDeck. As sessões abertas continuam conectadas; quem derruba por inatividade é o próprio equipamento.'),
   ], [cancelBtn, {
     label: 'Salvar', cls: 'primary',
     onClick: async (close) => {
@@ -695,7 +695,7 @@ async function backupDialog() {
     field('Pasta de destino', h('div', { class: 'grid2', style: 'grid-template-columns:1fr auto' }, folder, pick)),
     h('div', { class: 'grid3' }, field('Repetir a cada', every), field('Unidade', unitSel), field('Guardar os últimos', keep)),
     status,
-    h('div', { class: 'muted' }, 'Os arquivos copiados continuam criptografados com a sua senha mestra. O backup roda enquanto o NoronhaTerm estiver aberto. Para restaurar, copie o arquivo .vault de volta para a pasta de dados do app.'),
+    h('div', { class: 'muted' }, 'Os arquivos copiados continuam criptografados com a sua senha mestra. O backup roda enquanto o NetDeck estiver aberto. Para restaurar, copie o arquivo .vault de volta para a pasta de dados do app.'),
   ], [cancelBtn,
     { label: 'Fazer backup agora', onClick: async () => {
       await api.backupSet(read());
@@ -1301,6 +1301,13 @@ $('#btnSftp').onclick = async () => {
 
 // ---------------------------------------------------------------- início
 setCreating(false);
+// mostra a versão do programa (ex.: v0.3.1) na tela de bloqueio, no topo da lista e na tela vazia
+if (api.version) {
+  api.version().then((v) => {
+    document.querySelectorAll('[data-ver]').forEach((el) => { el.textContent = 'v' + v; });
+    document.title = 'NetDeck ' + v;
+  }).catch(() => {});
+}
 refreshUsers().then(() => $('#lockPass').focus()).catch((e) => showFatal(errMsg(e)));
 
 })();

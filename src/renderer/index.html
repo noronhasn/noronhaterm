@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
-  <title>NoronhaTerm</title>
+  <title>NetDeck</title>
   <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -11,7 +11,7 @@
   <!-- Tela de desbloqueio -->
   <div id="lock" class="lock">
     <form id="lockForm" class="lock-card" autocomplete="off">
-      <div class="logo">⌁ NoronhaTerm</div>
+      <div class="logo">⌁ NetDeck <span class="ver" data-ver></span></div>
       <p class="muted" id="lockHint">Escolha o usuário e digite a senha mestra.</p>
       <label>Usuário
         <select id="lockUser"></select>
@@ -64,7 +64,8 @@
       </div>
       <div id="terms" class="terms">
         <div id="empty" class="empty">
-          <div class="logo big">⌁ NoronhaTerm</div>
+          <div class="logo big">⌁ NetDeck</div>
+          <div class="muted ver" data-ver></div>
           <p>Dê duplo clique em um host, ou use a conexão rápida acima.</p>
         </div>
       </div>

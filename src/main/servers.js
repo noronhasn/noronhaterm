@@ -263,7 +263,7 @@ class FtpServer extends EventEmitter {
     sock.on('close', () => { this.conns.delete(sock); this._closePasv(st); });
     sock.on('error', () => {});
     this.emit('log', `FTP conexão de ${peer}`);
-    reply(220, 'NoronhaTerm FTP pronto');
+    reply(220, 'NetDeck FTP pronto');
 
     const virt = (p) => (p ? (p.startsWith('/') ? path.posix.normalize(p) : path.posix.normalize(path.posix.join(st.cwd, p))) : st.cwd);
     const real = (p) => jail(this.root, virt(p));
@@ -489,7 +489,7 @@ class FtpServer extends EventEmitter {
 const DEFAULT_CFG = {
   root: '',
   tftp: { enabled: false, port: 69, allowWrite: true },
-  ftp: { enabled: false, port: 21, allowWrite: true, user: 'noronha', password: '', anonymous: false },
+  ftp: { enabled: false, port: 21, allowWrite: true, user: 'admin', password: '', anonymous: false },
 };
 
 function sanitizeServers(c = {}) {
@@ -500,7 +500,7 @@ function sanitizeServers(c = {}) {
     tftp: { enabled: !!t.enabled, port: port(t.port, 69), allowWrite: t.allowWrite !== false },
     ftp: {
       enabled: !!f.enabled, port: port(f.port, 21), allowWrite: f.allowWrite !== false,
-      user: typeof f.user === 'string' ? f.user.trim().slice(0, 40) : 'noronha',
+      user: typeof f.user === 'string' ? f.user.trim().slice(0, 40) : 'admin',
       password: typeof f.password === 'string' ? f.password.slice(0, 100) : '',
       anonymous: !!f.anonymous,
     },

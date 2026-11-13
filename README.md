@@ -1,4 +1,4 @@
-# NoronhaTerm
+# NetDeck
 
 Cliente de terminal para **Windows e Linux** com SSH, Telnet e Serial, cofre criptografado de chaves/senhas e pastas de hosts por usuário. Inspirado no Termius e no MobaXterm.
 
@@ -14,12 +14,12 @@ npm run dist:win   # instalador Windows (rode no Windows)
 npm run dist:linux # AppImage + deb (rode no Linux)
 ```
 
-Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** gera os instaladores de **Windows** e de **Linux** (artefatos `noronhaterm-windows` e `noronhaterm-linux`).
+Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** gera os instaladores de **Windows** e de **Linux** (artefatos `netdeck-windows` e `netdeck-linux`).
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NoronhaTerm-0.3.0.deb`
-- AppImage: `chmod +x NoronhaTerm-0.3.0.AppImage && ./NoronhaTerm-0.3.0.AppImage`. Em Ubuntu 24.04 ou mais novo, se não abrir, use `./NoronhaTerm-0.3.0.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.3.1.deb`
+- AppImage: `chmod +x NetDeck-0.3.1.AppImage && ./NetDeck-0.3.1.AppImage`. Em Ubuntu 24.04 ou mais novo, se não abrir, use `./NetDeck-0.3.1.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: seu usuário precisa estar no grupo `dialout` (`sudo usermod -aG dialout $USER`, depois sair e entrar).
 

@@ -5,6 +5,7 @@ const inv = (ch, ...a) => ipcRenderer.invoke(ch, ...a);
 const EVENTS = new Set(['session:data', 'session:close', 'session:status', 'prompt:ask']);
 
 contextBridge.exposeInMainWorld('api', {
+  version: () => inv('app:version'),
   users: () => inv('users:list'),
   createVault: (u, p) => inv('vault:create', u, p),
   unlock: (u, p) => inv('vault:unlock', u, p),
