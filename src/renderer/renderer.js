@@ -34,6 +34,7 @@ function sel(options, value, attrs) {
   return s;
 }
 
+const MOBILE = !!api.mobile; // app Android: mesma tela, sem serial/SFTP/servidores/log
 const field = (label, input) => h('label', { class: 'field' }, label, input);
 const lines = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
 
@@ -362,7 +363,7 @@ async function hostDialog(existing, folderId) {
   const sr = d.serial || { port: DEFAULT_PORT, baud: 9600, dataBits: 8, parity: 'none', stopBits: 1, flow: 'none' };
   const i = {
     name: h('input', { value: d.name || '', placeholder: 'ex.: web-01' }),
-    protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ['serial', 'Serial']], d.protocol),
+    protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ...(MOBILE ? [] : [['serial', 'Serial']])], d.protocol),
     folder: sel(folderOptions(), d.folderId || ''),
     address: h('input', { value: d.address || '', placeholder: 'IP ou hostname' }),
     port: h('input', { type: 'number', value: d.port ?? '' }),
@@ -412,7 +413,7 @@ async function hostDialog(existing, folderId) {
 
   // protocolo escolhido por "chips" (o select fica só como valor interno)
   const chips = h('div', { class: 'chips' });
-  const PROTO = [['ssh', '🔐 SSH'], ['telnet', '📟 Telnet'], ['serial', '🔌 Serial']];
+  const PROTO = [['ssh', '🔐 SSH'], ['telnet', '📟 Telnet'], ...(MOBILE ? [] : [['serial', '🔌 Serial']])];
   const paintChips = () => chips.replaceChildren(...PROTO.map(([v, l]) =>
     h('button', { type: 'button', class: 'chip' + (i.protocol.value === v ? ' on' : ''), onclick: () => { i.protocol.value = v; sync(); } }, l)));
   const advanced = h('details', { class: 'adv' }, h('summary', {}, '⚙ Opções avançadas'),
@@ -554,10 +555,15 @@ $('#btnMore').onclick = () => {
       const r = await api.importData();
       if (r) { S = r.snapshot; renderTree(); toast(`${r.added} item(ns) importado(s)`, true); }
     }),
-    row('Backup automático do cofre…', backupDialog),
-    row('Log de sessão (gravar o terminal em arquivo)…', logDialog),
-    row('Restaurar backup do cofre…', restoreDialog),
-    row('Servidores TFTP / FTP…', serversDialog),
+    ...(MOBILE ? [
+      row('Backup do cofre (compartilhar o arquivo)…', async () => { const n = await api.backupExport(); toast('Backup pronto: ' + n, true); }),
+      row('Restaurar backup do cofre…', restoreDialog),
+    ] : [
+      row('Backup automático do cofre…', backupDialog),
+      row('Log de sessão (gravar o terminal em arquivo)…', logDialog),
+      row('Restaurar backup do cofre…', restoreDialog),
+      row('Servidores TFTP / FTP…', serversDialog),
+    ]),
     row('Alterar senha…', async () => {
       const a = h('input', { type: 'password', autocomplete: 'new-password' });
       const b = h('input', { type: 'password', autocomplete: 'new-password' });
@@ -736,6 +742,21 @@ api.on('prompt:ask', async (id, title, label, secret) => {
     { label: 'OK', cls: 'primary', onClick: (c) => c(inp.value) },
   ]);
   api.answerPrompt(id, v === undefined ? null : v);
+});
+
+// confirmação de chave de servidor (no Android; no computador isso é uma janela do sistema)
+api.on('confirm:ask', async (id, info) => {
+  const ok = await dialog(info.changed ? 'ALERTA: a chave do servidor mudou' : 'Servidor desconhecido', [
+    h('div', {}, info.changed
+      ? `A chave de ${info.hostport} é diferente da registrada. Isso pode indicar um ataque (man-in-the-middle) ou reinstalação do servidor.`
+      : `Primeira conexão com ${info.hostport}.`),
+    h('code', { style: 'word-break:break-all;display:block;margin:8px 0' }, `${info.algo}\n${info.fingerprint}`),
+    h('div', { class: 'muted' }, 'Confirme o fingerprint por um canal confiável antes de continuar.'),
+  ], [
+    { label: 'Cancelar', onClick: (c) => c(false) },
+    { label: info.changed ? 'Aceitar nova chave' : 'Confiar e conectar', cls: info.changed ? 'danger' : 'primary', onClick: (c) => c(true) },
+  ]);
+  api.answerPrompt(id, !!ok);
 });
 
 // ---------------------------------------------------------------- abas, painéis e terminais
@@ -1305,5 +1326,11 @@ if (api.version) {
   }).catch(() => {});
 }
 refreshUsers().then(() => $('#lockPass').focus()).catch((e) => showFatal(errMsg(e)));
+
+// ganchos para a barra de teclas do app Android (Esc, Tab, Ctrl, setas) falarem com o terminal ativo
+window.__netdeck = {
+  activeSid: () => (activePane && activePane.connected ? activePane.sid : null),
+  focusTerminal: () => { if (activePane) activePane.term.focus(); },
+};
 
 })();

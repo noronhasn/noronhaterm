@@ -85,3 +85,13 @@ Em **⋯ → Restaurar backup do cofre…** escolha o arquivo `.vault` (por exem
 
 ## Log de sessão
 Em **⋯ → Log de sessão…** ligue a gravação. Cada conexão aberta depois disso gera um arquivo `<host>_AAAAMMDD-HHMMSS.log` (sem cores nem códigos de controle, com a opção de hora em cada linha) na pasta escolhida (padrão: `Documentos\NetDeck\logs`). O log mostra o que apareceu no terminal; guarde a pasta com cuidado, pois pode conter configurações dos equipamentos.
+
+## Versão Android (0.5.0)
+
+App Android (APK) com SSH, Telnet, pastas/hosts, cofre criptografado, múltiplas abas, jump host e port forward local.
+**Não inclui:** Serial, servidores FTP/TFTP, SFTP, log de sessão, backup automático e SOCKS5.
+
+- Gerar: GitHub → Actions → Build → Run workflow → artefato `netdeck-android` (`NetDeck-Android-0.5.0.apk`).
+- Instalar: copie o APK para o celular e permita "instalar de fontes desconhecidas".
+- O cofre fica dentro do app. Use *Opções → Backup do cofre* para guardar uma cópia; o arquivo é o mesmo formato do desktop.
+- Se o Android encerrar o app em segundo plano, as sessões SSH caem.

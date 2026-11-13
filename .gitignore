@@ -1,3 +1,7 @@
 node_modules/
 dist/
 *.vault
+
+mobile/node_modules/
+mobile/www/
+mobile/android/

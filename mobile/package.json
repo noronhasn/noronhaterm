@@ -1,0 +1,21 @@
+{
+  "name": "netdeck-android",
+  "private": true,
+  "version": "0.5.0",
+  "description": "NetDeck para Android (Capacitor): mesma interface do computador + SSH/Telnet nativos",
+  "scripts": {
+    "build:web": "node scripts/build-web.js",
+    "android:prepare": "node scripts/build-web.js && node scripts/patch-android.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.1.2",
+    "@capacitor/cli": "6.1.2",
+    "@capacitor/core": "6.1.2",
+    "@capacitor/filesystem": "6.0.1",
+    "@capacitor/share": "6.0.2",
+    "@noble/ciphers": "1.0.0",
+    "@noble/hashes": "1.5.0",
+    "buffer": "6.0.3",
+    "esbuild": "0.23.1"
+  }
+}
