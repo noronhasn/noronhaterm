@@ -51,7 +51,7 @@ const errMsg = (e) => String(e && e.message ? e.message : e).replace(/^Error inv
 function dialog(title, body, actions = [], { onClose } = {}) {
   return new Promise((resolve) => {
     const dlg = h('dialog');
-    const close = (v) => { if (dlg.open) dlg.close(); dlg.remove(); if (onClose) onClose(); resolve(v); };
+    const close = (v) => { if (dlg.open) dlg.close(); dlg.remove(); if (onClose) onClose(); resolve(v); refocusTerminal(); };
     const foot = h('div', { class: 'dlg-foot' }, actions.map((a) => h('button', {
       class: a.cls || '',
       type: 'button',
@@ -59,12 +59,24 @@ function dialog(title, body, actions = [], { onClose } = {}) {
         try { await a.onClick(close); } catch (e) { toast(errMsg(e)); }
       },
     }, a.label)));
-    dlg.append(h('div', { class: 'dlg-head' }, title), h('div', { class: 'dlg-body' }, body), foot);
+    dlg.append(...(title ? [h('div', { class: 'dlg-head' }, title)] : []), h('div', { class: 'dlg-body' }, body), foot);
     dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(undefined); });
+    dlg.addEventListener('keydown', (e) => { // Enter num campo de texto aciona o botão principal (ex.: OK da senha)
+      if (e.key !== 'Enter' || !e.target || e.target.tagName !== 'INPUT' || e.target.type === 'file') return;
+      const primary = foot.querySelector('button.primary');
+      if (primary) { e.preventDefault(); primary.click(); }
+    });
     document.body.append(dlg);
     dlg.showModal();
     const first = dlg.querySelector('input:not([type=hidden]), select, textarea');
     if (first) first.focus();
+  });
+}
+
+// depois de fechar um diálogo, o teclado volta para o terminal ativo (e não para um botão qualquer)
+function refocusTerminal() {
+  requestAnimationFrame(() => {
+    if (activePane && !document.querySelector('dialog[open]') && !$('#app').hidden) activePane.term.focus();
   });
 }
 
@@ -179,11 +191,35 @@ async function doLock() {
 $('#btnLock').onclick = doLock;
 
 let idleTimer;
-const IDLE_MS = 15 * 60 * 1000;
+// minutos sem uso até bloquear o cofre (0 = nunca); escolhido no botão ⏱ e lembrado neste computador
+function idleMinutes() {
+  let v = 15;
+  try { const n = Number(localStorage.getItem('idleMinutes')); if (localStorage.getItem('idleMinutes') !== null && Number.isFinite(n) && n >= 0) v = n; } catch { /* usa padrão */ }
+  return v;
+}
 function resetIdle() {
   clearTimeout(idleTimer);
-  if (S) idleTimer = setTimeout(doLock, IDLE_MS);
+  const m = idleMinutes();
+  if (S && m > 0) idleTimer = setTimeout(doLock, m * 60 * 1000);
 }
+$('#btnIdle').onclick = async () => {
+  const input = h('input', { type: 'number', min: '0', max: '1440', step: '1' });
+  input.value = String(idleMinutes());
+  await dialog('Bloqueio automático', [
+    field('Bloquear o cofre após quantos minutos sem uso? (0 = nunca bloquear)', input),
+    h('div', { class: 'muted' }, 'Isto só afeta o cofre do NoronhaTerm. As sessões abertas continuam conectadas; quem derruba por inatividade é o próprio equipamento.'),
+  ], [cancelBtn, {
+    label: 'Salvar', cls: 'primary',
+    onClick: async (close) => {
+      const n = Math.floor(Number(input.value));
+      if (!Number.isFinite(n) || n < 0 || n > 1440) throw new Error('Use um número de 0 a 1440.');
+      try { localStorage.setItem('idleMinutes', String(n)); } catch { /* ignora */ }
+      resetIdle();
+      toast(n === 0 ? 'Bloqueio automático desligado.' : 'Bloqueio automático em ' + n + ' min.', true);
+      close(true);
+    },
+  }]);
+};
 ['mousemove', 'keydown', 'mousedown'].forEach((ev) => window.addEventListener(ev, resetIdle, true));
 
 // ---------------------------------------------------------------- árvore
@@ -358,8 +394,8 @@ async function hostDialog(existing, folderId) {
   }, 'Detectar portas');
 
   const net = h('div', { class: 'list' },
-    h('div', { class: 'grid2' }, field('Endereço', i.address), field('Porta', i.port)),
-    h('div', { class: 'grid2' }, field('Identidade (usuário + senha/chave)', i.identity), field('Jump host (ProxyJump)', i.jump)));
+    h('div', { class: 'grid2' }, field('Porta', i.port), field('Jump host (ProxyJump)', i.jump)),
+    field('Identidade (usuário + senha/chave). Vazio = pergunta ao conectar', i.identity));
   i.legacy = h('input', { type: 'checkbox', checked: d.legacyAlgorithms !== false });
   const sshOnly = h('div', { class: 'list' },
     h('label', { class: 'check' }, i.legacy, 'Aceitar algoritmos antigos (switches, CPEs e roteadores legados)'),
@@ -371,27 +407,41 @@ async function hostDialog(existing, folderId) {
     h('div', { class: 'grid3' }, field('Baud rate', i.sBaud), field('Bits de dados', i.sData), field('Paridade', i.sParity)),
     h('div', { class: 'grid2' }, field('Stop bits', i.sStop), field('Controle de fluxo', i.sFlow)));
 
+  // protocolo escolhido por "chips" (o select fica só como valor interno)
+  const chips = h('div', { class: 'chips' });
+  const PROTO = [['ssh', '🔐 SSH'], ['telnet', '📟 Telnet'], ['serial', '🔌 Serial']];
+  const paintChips = () => chips.replaceChildren(...PROTO.map(([v, l]) =>
+    h('button', { type: 'button', class: 'chip' + (i.protocol.value === v ? ' on' : ''), onclick: () => { i.protocol.value = v; sync(); } }, l)));
+  const advanced = h('details', { class: 'adv' }, h('summary', {}, '⚙ Opções avançadas'),
+    h('div', { class: 'list adv-body' }, net, sshOnly, telnetOnly, field('Tags (separadas por vírgula)', i.tags), field('Comandos iniciais', i.cmds), field('Notas', i.notes)));
+  const addrField = field('Endereço (IP ou hostname)', i.address);
   const sync = () => {
     const p = i.protocol.value;
+    addrField.hidden = p === 'serial';
     net.hidden = p === 'serial';
     serial.hidden = p !== 'serial';
     sshOnly.hidden = p !== 'ssh';
     telnetOnly.hidden = p !== 'telnet';
     if (!existing || (existing && p !== existing.protocol)) i.port.value = p === 'telnet' ? 23 : p === 'ssh' ? 22 : '';
+    paintChips();
   };
   i.protocol.onchange = sync;
   sync();
   if (existing) i.port.value = d.port ?? '';
+  // host que já tem algo avançado configurado abre a seção expandida
+  if (existing && (existing.identityId || existing.jumpHostId || (existing.forwards || []).length || (existing.startupCommands || []).length || (existing.tags || []).length || existing.notes)) advanced.open = true;
 
+  const hero = h('div', { class: 'hero' },
+    h('div', { class: 'hero-ic' }, '🖥'),
+    h('div', {}, h('div', { class: 'hero-t' }, existing ? 'Editar host' : 'Adicionar um host'),
+      h('div', { class: 'muted' }, 'Só nome, IP e grupo. Usuário e senha são pedidos ao conectar.')));
   const body = [
-    h('div', { class: 'grid2' }, field('Nome', i.name), field('Pasta', i.folder)),
-    field('Protocolo', i.protocol), net, serial, sshOnly, telnetOnly,
-    field('Tags (separadas por vírgula)', i.tags),
-    field('Comandos iniciais', i.cmds),
-    field('Notas', i.notes),
+    hero, chips,
+    h('div', { class: 'grid2' }, field('Nome', i.name), field('Grupo', i.folder)),
+    addrField, serial, advanced,
   ];
 
-  await dialog(existing ? 'Editar host' : 'Novo host', body, [cancelBtn, {
+  await dialog('', body, [cancelBtn, {
     label: 'Salvar', cls: 'primary',
     onClick: async (close) => {
       const p = i.protocol.value;
@@ -628,12 +678,91 @@ const { Layout } = window;
 
 function setEmpty() { $('#empty').hidden = tabList.length > 0; }
 
+// Fonte do terminal (botão "Aa"): família + tamanho + altura da linha, lembrados neste computador.
+const FONTS = ['Cascadia Mono', 'Cascadia Code', 'Consolas', 'Courier New', 'Lucida Console', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Hack', 'Ubuntu Mono', 'DejaVu Sans Mono'];
+const FONT_FALLBACK = "'DejaVu Sans Mono',Consolas,monospace";
+const FONT_DEFAULT = { family: 'Cascadia Mono', size: 14, lineHeight: 1, theme: 'padrao' };
+// Cores do texto/fundo do terminal (as 16 cores ANSI continuam as do THEME)
+const COLOR_THEMES = {
+  padrao: ['Padrão (azul escuro)', { background: '#0d0f13', foreground: '#d7dae0', cursor: '#4f8cff', selectionBackground: '#2f4a80' }],
+  matrix: ['Verde (terminal clássico)', { background: '#050805', foreground: '#33ff66', cursor: '#33ff66', selectionBackground: '#145a28' }],
+  ambar: ['Âmbar (monitor antigo)', { background: '#100a02', foreground: '#ffb000', cursor: '#ffb000', selectionBackground: '#5a3d00' }],
+  solarized: ['Solarized escuro', { background: '#002b36', foreground: '#93a1a1', cursor: '#93a1a1', selectionBackground: '#0b4a5a' }],
+  dracula: ['Dracula', { background: '#282a36', foreground: '#f8f8f2', cursor: '#f8f8f2', selectionBackground: '#44475a' }],
+  claro: ['Claro', { background: '#fafafa', foreground: '#1f2328', cursor: '#0969da', selectionBackground: '#b6d4fe' }],
+};
+const themeFor = (id) => ({ ...THEME, ...(COLOR_THEMES[id] || COLOR_THEMES.padrao)[1] });
+function fontPrefs() {
+  let o = {};
+  try { o = JSON.parse(localStorage.getItem('termFont') || '{}') || {}; } catch { o = {}; }
+  const size = Math.min(40, Math.max(8, Math.round(Number(o.size)) || FONT_DEFAULT.size));
+  const lh = Math.min(1.6, Math.max(1, Number(o.lineHeight) || FONT_DEFAULT.lineHeight));
+  const family = typeof o.family === 'string' && /^[\w .-]{1,60}$/.test(o.family) ? o.family : FONT_DEFAULT.family;
+  const theme = COLOR_THEMES[o.theme] ? o.theme : FONT_DEFAULT.theme;
+  return { family, size, lineHeight: lh, theme };
+}
+const fontStack = (family) => "'" + family + "'," + FONT_FALLBACK;
+function applyFont(prefs) {
+  try { localStorage.setItem('termFont', JSON.stringify(prefs)); } catch { /* ignora */ }
+  for (const p of panes.values()) {
+    p.term.options.fontFamily = fontStack(prefs.family);
+    p.term.options.fontSize = prefs.size;
+    p.term.options.lineHeight = prefs.lineHeight;
+    p.term.options.theme = themeFor(prefs.theme);
+    p.el.style.background = themeFor(prefs.theme).background;
+  }
+  scheduleFit();
+}
+function zoomFont(delta) {
+  const f = fontPrefs();
+  applyFont({ ...f, size: Math.min(40, Math.max(8, f.size + delta)) });
+}
+$('#btnFont').onclick = async () => {
+  const cur = fontPrefs();
+  const list = FONTS.includes(cur.family) ? FONTS : [cur.family, ...FONTS];
+  const family = sel(list.map((f) => [f, f]), cur.family);
+  const custom = h('input', { placeholder: 'ou digite o nome de outra fonte instalada' });
+  const theme = sel(Object.entries(COLOR_THEMES).map(([k, v]) => [k, v[0]]), cur.theme);
+  const size = h('input', { type: 'number', min: '8', max: '40', step: '1' }); size.value = String(cur.size);
+  const lh = h('input', { type: 'number', min: '1', max: '1.6', step: '0.05' }); lh.value = String(cur.lineHeight);
+  const preview = h('div', { class: 'font-preview' }, 'admin@MikroTik > /ip address print\n0123456789 O0 Il1 {}[]()');
+  const read = () => ({ family: custom.value.trim() || family.value, size: Number(size.value), lineHeight: Number(lh.value), theme: theme.value });
+  const refresh = () => {
+    const f = read();
+    preview.style.fontFamily = fontStack(/^[\w .-]{1,60}$/.test(f.family) ? f.family : FONT_DEFAULT.family);
+    preview.style.fontSize = Math.min(40, Math.max(8, f.size || 14)) + 'px';
+    preview.style.lineHeight = String(Math.min(1.6, Math.max(1, f.lineHeight || 1)));
+    const c = themeFor(f.theme); preview.style.background = c.background; preview.style.color = c.foreground;
+  };
+  [family, custom, size, lh, theme].forEach((e) => { e.addEventListener('input', refresh); e.addEventListener('change', refresh); });
+  refresh();
+  await dialog('Fonte e cores do terminal', [
+    h('div', { class: 'grid2' }, field('Fonte', family), field('Outra fonte (opcional)', custom)),
+    h('div', { class: 'grid2' }, field('Tamanho (8–40)', size), field('Altura da linha (1–1.6)', lh)),
+    field('Cores do texto e do fundo', theme),
+    preview,
+    h('div', { class: 'muted' }, 'Só aparecem fontes instaladas no Windows. Atalhos no terminal: Ctrl + roda do mouse, Ctrl + "+" / "-", Ctrl + 0 (padrão).'),
+  ], [cancelBtn,
+    { label: 'Padrão', onClick: async (close) => { applyFont({ ...FONT_DEFAULT }); close(true); } },
+    { label: 'Aplicar', cls: 'primary', onClick: async (close) => { applyFont(sanitizeFont(read())); close(true); } },
+  ]);
+};
+function sanitizeFont(f) {
+  const size = Math.min(40, Math.max(8, Math.round(Number(f.size)) || FONT_DEFAULT.size));
+  const lineHeight = Math.min(1.6, Math.max(1, Number(f.lineHeight) || 1));
+  const family = /^[\w .-]{1,60}$/.test(f.family) ? f.family : FONT_DEFAULT.family;
+  const theme = COLOR_THEMES[f.theme] ? f.theme : FONT_DEFAULT.theme;
+  return { family, size, lineHeight, theme };
+}
+
 function makePane({ name, protocol, hostId, adhoc }) {
   const el = h('div', { class: 'term' });
+  const fp = fontPrefs();
   const term = new Terminal({
-    fontFamily: "'Cascadia Mono','DejaVu Sans Mono',Consolas,monospace", fontSize: 14, cursorBlink: true,
-    scrollback: 10000, theme: THEME, allowProposedApi: false,
+    fontFamily: fontStack(fp.family), fontSize: fp.size, lineHeight: fp.lineHeight, cursorBlink: true,
+    scrollback: 10000, theme: themeFor(fp.theme), allowProposedApi: false,
   });
+  el.style.background = themeFor(fp.theme).background;
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   const pane = { sid: crypto.randomUUID(), name, protocol, hostId, adhoc, term, fit, el, wrap: null, opened: false, connected: false, dead: false, tab: null };
@@ -641,6 +770,11 @@ function makePane({ name, protocol, hostId, adhoc }) {
   term.onData((d) => sendInput(pane, d));
   term.onResize(({ cols, rows }) => { if (pane.connected) api.resize(pane.sid, cols, rows); });
   term.attachCustomKeyEventHandler((e) => {
+    if (e.type === 'keydown' && e.ctrlKey && !e.shiftKey && !e.altKey) {
+      if (e.key === '+' || e.key === '=') { zoomFont(1); return false; }
+      if (e.key === '-') { zoomFont(-1); return false; }
+      if (e.key === '0') { applyFont({ ...FONT_DEFAULT }); return false; }
+    }
     if (e.type !== 'keydown' || !e.ctrlKey || !e.shiftKey) return true;
     if (e.code === 'KeyC') { navigator.clipboard.writeText(term.getSelection()); return false; }
     if (e.code === 'KeyV') { navigator.clipboard.readText().then((t) => term.paste(t)); return false; }
@@ -652,12 +786,13 @@ function makePane({ name, protocol, hostId, adhoc }) {
     else term.paste(await navigator.clipboard.readText());
   });
   el.addEventListener('mousedown', () => focusPane(pane), true);
+  el.addEventListener('wheel', (e) => { if (e.ctrlKey) { e.preventDefault(); zoomFont(e.deltaY < 0 ? 1 : -1); } }, { passive: false });
   return pane;
 }
 
 function makeTab(pane) {
   const badge = h('span', { class: 'badge' });
-  const label = h('span', {});
+  const label = h('span', { class: 'tab-label' });
   const x = h('span', { class: 'x', title: 'Fechar aba' }, '✕');
   const tabEl = h('div', { class: 'tab' }, badge, label, x);
   const el = h('div', { class: 'tabview' });
@@ -930,6 +1065,7 @@ $('#btnReconnect').onclick = () => {
   if (activePane.connected) api.close(activePane.sid);
   activePane.term.writeln('');
   connect(activePane);
+  activePane.term.focus();
 };
 
 // Dividir o painel atual repetindo a mesma conexão (para outro host, arraste da lista).
@@ -938,6 +1074,14 @@ const splitHere = (side) => {
   if (!p) return toast('Abra uma conexão primeiro');
   splitOpen(p, side, { name: p.name, protocol: p.protocol, hostId: p.hostId, adhoc: p.adhoc });
 };
+// Botões da barra superior nunca ficam com o foco do teclado: assim o Enter/Espaço digitado no terminal não
+// aciona por engano "↻ reconectar" ou "dividir". Clique vindo do teclado tem detail === 0 e é ignorado.
+const topbarEl = $('.topbar');
+topbarEl.addEventListener('mousedown', (e) => { if (e.target.closest && e.target.closest('button')) e.preventDefault(); });
+topbarEl.addEventListener('click', (e) => {
+  if (e.target.closest && e.target.closest('button') && e.detail === 0) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+
 $('#btnSplitH').onclick = () => splitHere('right');
 $('#btnSplitV').onclick = () => splitHere('bottom');
 

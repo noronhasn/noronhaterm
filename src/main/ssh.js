@@ -119,8 +119,12 @@ class SshSession {
   }
 
   async _connect(client, hop, sock) {
-    const id = hop.identity;
-    if (!id || !id.username) throw new Error(`Defina uma identidade com usuário para ${hop.name || hop.address}`);
+    let id = hop.identity;
+    if (!id || !id.username) { // host salvo só com nome + IP: pergunta usuário e senha na hora de conectar
+      const user = await this.prompt(`Conectar em ${hop.name || hop.address}`, 'Usuário', false);
+      if (user === null || !String(user).trim()) throw new Error('Conexão cancelada');
+      id = { ...(id || {}), username: String(user).trim(), useAgent: false };
+    }
     const cfg = {
       host: hop.address, port: hop.port || 22, username: id.username, sock,
       readyTimeout: 25000, keepaliveInterval: 15000, tryKeyboard: true,

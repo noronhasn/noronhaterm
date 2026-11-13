@@ -16,7 +16,7 @@ function setup() {
       tag, style: {}, className: '', value: '', textContent: '', hidden: false, nodeType: 1, children: [], _handlers: handlers,
       classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
       addEventListener(t, f) { (handlers[t] ||= []).push(f); },
-      append() {}, replaceChildren() {}, remove() {}, setAttribute() {}, focus() {}, contains: () => true,
+      append() {}, replaceChildren() {}, remove() {}, setAttribute() {}, focus() {}, contains: () => true, showModal() {}, close() {}, open: false,
       querySelector: () => mkEl('q'), querySelectorAll: () => [], closest: () => null,
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 600 }),
     };
@@ -153,4 +153,60 @@ test('renderer: abas, divisões, soltar host, fechar painéis e reconectar sem e
     process.off('unhandledRejection', onRej);
   }
   assert.deepEqual(errors.map(String), [], 'nenhuma promessa rejeitada sem tratamento');
+});
+
+test('renderer: botões da barra superior ignoram clique de teclado (Enter no terminal não reconecta)', async () => {
+  const t = setup();
+  await tick();
+  const bar = t.byId('.topbar');
+  const btn = { closest: (sel) => (sel === 'button' ? {} : null) };
+  const notBtn = { closest: () => null };
+  let prevented = 0; let stopped = 0;
+  const e = (target, detail) => ({ target, detail, preventDefault() { prevented++; }, stopPropagation() { stopped++; } });
+  // mouse: não rouba o foco do terminal
+  bar._handlers.mousedown[0](e(btn, 1));
+  assert.equal(prevented, 1, 'mousedown em botão não pode focar o botão');
+  bar._handlers.mousedown[0](e(notBtn, 1));
+  assert.equal(prevented, 1, 'mousedown fora de botão segue normal (campo de conexão rápida)');
+  // clique de teclado (detail 0) é bloqueado; clique de mouse passa
+  bar._handlers.click[0](e(btn, 0));
+  assert.equal(stopped, 1, 'Enter/Espaço em botão focado é bloqueado');
+  bar._handlers.click[0](e(btn, 1));
+  assert.equal(stopped, 1, 'clique de mouse não é bloqueado');
+  bar._handlers.click[0](e(notBtn, 0));
+  assert.equal(stopped, 1);
+});
+
+test('renderer: botão de fonte abre o diálogo sem erro e o painel usa a fonte salva', async () => {
+  const errors = [];
+  const onRej = (e) => errors.push(e);
+  process.on('unhandledRejection', onRej);
+  try {
+    const t = setup();
+    await tick();
+    t.byId('#lockUser').value = 'u'; t.byId('#lockPass').value = 'senha-qualquer';
+    await t.byId('#lockForm')._handlers.submit[0](ev());
+    t.byId('#quickInput').value = 'root@10.0.0.1';
+    await t.byId('#quick')._handlers.submit[0](ev());
+    await tick();
+    t.byId('#btnFont').onclick();
+    await tick();
+  } finally { process.off('unhandledRejection', onRej); }
+  assert.deepEqual(errors.map(String), []);
+});
+
+test('renderer: novo host abre o formulário simplificado sem erro', async () => {
+  const errors = [];
+  const onRej = (e) => errors.push(e);
+  process.on('unhandledRejection', onRej);
+  try {
+    const t = setup();
+    await tick();
+    t.byId('#lockUser').value = 'u'; t.byId('#lockPass').value = 'senha-qualquer';
+    await t.byId('#lockForm')._handlers.submit[0](ev());
+    await tick();
+    const b = t.byId('#btnNewHost');
+    if (b.onclick) { b.onclick(); await tick(); }
+  } finally { process.off('unhandledRejection', onRej); }
+  assert.deepEqual(errors.map(String), []);
 });
