@@ -12,7 +12,7 @@ const HOST_FIELDS = [
   'name', 'folderId', 'protocol', 'address', 'port', 'identityId', 'jumpHostId', 'tags', 'notes',
   'serial', 'startupCommands', 'forwards', 'favorite', 'telnetEnter', 'legacyAlgorithms', 'order',
 ];
-const IDENTITY_FIELDS = ['name', 'username', 'password', 'keyId', 'useAgent'];
+const IDENTITY_FIELDS = ['name', 'username', 'password', 'keyId', 'useAgent', 'ownerHostId'];
 
 const pick = (obj, fields) => {
   const out = {};
@@ -153,6 +153,7 @@ class Store {
   removeHost(id) {
     this._need(this._host(id), 'Host');
     this.data.hosts = this.data.hosts.filter((h) => h.id !== id);
+    this.data.identities = this.data.identities.filter((i) => i.ownerHostId !== id); // usuário/senha salvos só para este host
     this.data.hosts.forEach((h) => { if (h.jumpHostId === id) h.jumpHostId = null; });
     this.data.folders.forEach((f) => { if (f.defaultJumpHostId === id) f.defaultJumpHostId = null; });
     this._save();

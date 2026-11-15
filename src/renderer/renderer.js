@@ -124,7 +124,7 @@ function folderOptions(excludeId) {
   return out;
 }
 
-const identityOptions = (first) => [['', first], ...S.identities.map((i) => [i.id, `${i.name}${i.username ? ' (' + i.username + ')' : ''}`])];
+const identityOptions = (first) => [['', first], ...S.identities.filter((i) => !i.ownerHostId).map((i) => [i.id, `${i.name}${i.username ? ' (' + i.username + ')' : ''}`])];
 const hostOptions = (first, excludeId) => [['', first], ...S.hosts.filter((x) => x.id !== excludeId && x.protocol === 'ssh').map((x) => [x.id, x.name])];
 
 // ---------------------------------------------------------------- bloqueio
@@ -135,6 +135,7 @@ async function refreshUsers() {
   s.replaceChildren(...users.map((u) => h('option', { value: u }, u)));
   if (!users.length) setCreating(true);
   $('#lockToggle').hidden = !users.length;
+  paintRemember();
 }
 
 function setCreating(v) {
@@ -149,6 +150,27 @@ function setCreating(v) {
 }
 
 $('#lockToggle').onclick = () => setCreating(!creating);
+
+function enterApp(user) {
+  if (currentUser && currentUser !== user) closeAllTabs();
+  currentUser = user;
+  $('#lockPass').value = ''; $('#lockPass2').value = '';
+  $('#lock').hidden = true;
+  $('#app').hidden = false;
+  $('#whoami').textContent = '👤 ' + user;
+  renderTree();
+  resetIdle();
+  activeTab && activate(activeTab);
+}
+async function paintRemember() { // mostra a caixa "Lembrar" só quando o sistema consegue guardar a senha com segurança
+  const w = $('#lockRememberWrap');
+  try {
+    const ok = !MOBILE && api.rememberCan && await api.rememberCan();
+    w.hidden = !ok;
+    if (ok) $('#lockRemember').checked = !!(await api.rememberHas($('#lockUser').value || $('#lockNewUser').value.trim()));
+  } catch { w.hidden = true; }
+}
+$('#lockUser').addEventListener('change', paintRemember);
 
 $('#lockForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -165,15 +187,9 @@ $('#lockForm').addEventListener('submit', async (e) => {
       user = $('#lockUser').value;
       S = await api.unlock(user, pass);
     }
-    if (currentUser && currentUser !== user) closeAllTabs();
-    currentUser = user;
-    $('#lockPass').value = ''; $('#lockPass2').value = '';
-    $('#lock').hidden = true;
-    $('#app').hidden = false;
-    $('#whoami').textContent = '👤 ' + user;
-    renderTree();
-    resetIdle();
-    activeTab && activate(activeTab);
+    if (!MOBILE && api.rememberSet) await api.rememberSet(user, pass, $('#lockRemember').checked);
+    rememberedNow = !MOBILE && !!$('#lockRemember').checked && !$('#lockRememberWrap').hidden;
+    enterApp(user);
   } catch (ex) {
     err.textContent = errMsg(ex);
   }
@@ -192,16 +208,17 @@ async function doLock() {
 $('#btnLock').onclick = doLock;
 
 let idleTimer;
+let rememberedNow = false; // com "Lembrar neste computador" ligado o app não bloqueia sozinho
 // minutos sem uso até bloquear o cofre (0 = nunca); escolhido no botão ⏱ e lembrado neste computador
 function idleMinutes() {
-  let v = 15;
+  let v = 60;
   try { const n = Number(localStorage.getItem('idleMinutes')); if (localStorage.getItem('idleMinutes') !== null && Number.isFinite(n) && n >= 0) v = n; } catch { /* usa padrão */ }
   return v;
 }
 function resetIdle() {
   clearTimeout(idleTimer);
   const m = idleMinutes();
-  if (S && m > 0) idleTimer = setTimeout(doLock, m * 60 * 1000);
+  if (S && m > 0 && !rememberedNow) idleTimer = setTimeout(doLock, m * 60 * 1000);
 }
 $('#btnIdle').onclick = async () => {
   const input = h('input', { type: 'number', min: '0', max: '1440', step: '1' });
@@ -221,7 +238,7 @@ $('#btnIdle').onclick = async () => {
     },
   }]);
 };
-['mousemove', 'keydown', 'mousedown'].forEach((ev) => window.addEventListener(ev, resetIdle, true));
+['mousemove', 'keydown', 'mousedown', 'touchstart'].forEach((ev) => window.addEventListener(ev, resetIdle, true));
 
 // ---------------------------------------------------------------- árvore
 function matches(x, q) {
@@ -361,13 +378,16 @@ async function hostDialog(existing, folderId) {
   const isLinux = /Linux/i.test(navigator.userAgent || '') && !/Android/i.test(navigator.userAgent || '');
   const DEFAULT_PORT = isLinux ? '/dev/ttyUSB0' : ''; // no Linux o adaptador USB-serial costuma ser /dev/ttyUSB0
   const sr = d.serial || { port: DEFAULT_PORT, baud: 9600, dataBits: 8, parity: 'none', stopBits: 1, flow: 'none' };
+  const own = existing ? S.identities.find((x) => x.ownerHostId === existing.id) : null; // usuário/senha salvos só neste host
   const i = {
     name: h('input', { value: d.name || '', placeholder: 'ex.: web-01' }),
     protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ...(MOBILE ? [] : [['serial', 'Serial']])], d.protocol),
     folder: sel(folderOptions(), d.folderId || ''),
     address: h('input', { value: d.address || '', placeholder: 'IP ou hostname' }),
     port: h('input', { type: 'number', value: d.port ?? '' }),
-    identity: sel(identityOptions('(herdar da pasta)'), d.identityId || ''),
+    identity: sel(identityOptions('(herdar da pasta)'), (own ? '' : d.identityId) || ''),
+    user: h('input', { value: own ? own.username : '', placeholder: 'usuário', autocomplete: 'off' }),
+    pass: h('input', { type: 'password', autocomplete: 'new-password', placeholder: own && own.hasPassword ? '(salva — digite para trocar)' : 'senha (opcional)' }),
     jump: sel(hostOptions('(nenhum / herdar da pasta)', d.id), d.jumpHostId || ''),
     enter: sel([['crlf', 'Enter = CR+LF'], ['crnul', 'Enter = CR+NUL']], d.telnetEnter || 'crlf'),
     forwards: h('textarea', { placeholder: 'L:8080:db.interno:5432   (túnel local)\nD:1080   (proxy SOCKS5)' }),
@@ -419,9 +439,15 @@ async function hostDialog(existing, folderId) {
   const advanced = h('details', { class: 'adv' }, h('summary', {}, '⚙ Opções avançadas'),
     h('div', { class: 'list adv-body' }, net, sshOnly, telnetOnly, field('Tags (separadas por vírgula)', i.tags), field('Comandos iniciais', i.cmds), field('Notas', i.notes)));
   const addrField = field('Endereço (IP ou hostname)', i.address);
+  const clearPass = h('input', { type: 'checkbox' });
+  const creds = h('div', { class: 'list' },
+    h('div', { class: 'grid2' }, field('Usuário (opcional)', i.user), field('Senha (salva no cofre)', i.pass)),
+    own && own.hasPassword ? h('label', { class: 'check' }, clearPass, 'Remover a senha salva') : null,
+    h('div', { class: 'muted' }, 'Preenchendo, é só clicar no host para conectar. Vazio = pergunta ao conectar.'));
   const sync = () => {
     const p = i.protocol.value;
     addrField.hidden = p === 'serial';
+    creds.hidden = p === 'serial';
     net.hidden = p === 'serial';
     serial.hidden = p !== 'serial';
     sshOnly.hidden = p !== 'ssh';
@@ -438,11 +464,11 @@ async function hostDialog(existing, folderId) {
   const hero = h('div', { class: 'hero' },
     h('div', { class: 'hero-ic' }, '🖥'),
     h('div', {}, h('div', { class: 'hero-t' }, existing ? 'Editar host' : 'Adicionar um host'),
-      h('div', { class: 'muted' }, 'Só nome, IP e grupo. Usuário e senha são pedidos ao conectar.')));
+      h('div', { class: 'muted' }, 'Nome, IP e grupo. Se salvar usuário e senha, conecta direto.')));
   const body = [
     hero, chips,
     h('div', { class: 'grid2' }, field('Nome', i.name), field('Grupo', i.folder)),
-    addrField, serial, advanced,
+    addrField, creds, serial, advanced,
   ];
 
   await dialog('', body, [cancelBtn, {
@@ -466,7 +492,20 @@ async function hostDialog(existing, folderId) {
         if (p === 'ssh') { patch.forwards = lines(i.forwards.value); patch.legacyAlgorithms = i.legacy.checked; }
         if (p === 'telnet') patch.telnetEnter = i.enter.value;
       }
-      if (existing) await call('updateHost', existing.id, patch); else await call('addHost', patch);
+      const saved = existing ? (await call('updateHost', existing.id, patch), existing) : await call('addHost', patch);
+      if (p !== 'serial' && saved && saved.id) {
+        const u = i.user.value.trim();
+        if (own) {
+          const ip = { name: patch.name, username: u };
+          if (i.pass.value) ip.password = i.pass.value;
+          if (clearPass.checked) ip.password = '';
+          await call('updateIdentity', own.id, ip);
+          if (!patch.identityId) await call('updateHost', saved.id, { identityId: own.id });
+        } else if (u || i.pass.value) {
+          const idn = await call('addIdentity', { name: patch.name || u, username: u, password: i.pass.value, ownerHostId: saved.id });
+          await call('updateHost', saved.id, { identityId: idn.id });
+        }
+      }
       close(true);
     },
   }]);
@@ -507,8 +546,8 @@ async function vaultDialog() {
   function draw() {
     box.replaceChildren();
     box.append(h('div', {}, h('button', { class: 'primary', onclick: async () => { await identityDialog(null); draw(); } }, '＋ Nova identidade')));
-    if (!S.identities.length) box.append(h('div', { class: 'muted' }, 'Identidade = usuário + senha. Defina uma vez e reutilize em vários hosts.'));
-    S.identities.forEach((x) => {
+    if (!S.identities.some((x) => !x.ownerHostId)) box.append(h('div', { class: 'muted' }, 'Identidade = usuário + senha. Defina uma vez e reutilize em vários hosts.'));
+    S.identities.filter((x) => !x.ownerHostId).forEach((x) => {
       const used = S.hosts.filter((hh) => hh.identityId === x.id).length;
       box.append(h('div', { class: 'item' },
         h('span', { class: 'grow' }, `${x.name} — ${x.username || '(sem usuário)'}`, ' ',
@@ -1100,7 +1139,11 @@ function closeTab(tab) {
 
 function closeAllTabs() { [...tabList].forEach(closeTab); }
 
-api.on('session:data', (id, data) => { const p = panes.get(id); if (p) p.term.write(data); });
+let lastAct = 0;
+api.on('session:data', (id, data) => {
+  const p = panes.get(id); if (p) p.term.write(data);
+  const t = Date.now(); if (t - lastAct > 5000) { lastAct = t; resetIdle(); } // sessão com movimento conta como uso: não bloqueia o cofre
+});
 api.on('session:status', (id, msg) => {
   const p = panes.get(id);
   if (!p) return;
@@ -1325,7 +1368,14 @@ if (api.version) {
     document.title = 'NetDeck ' + v;
   }).catch(() => {});
 }
-refreshUsers().then(() => $('#lockPass').focus()).catch((e) => showFatal(errMsg(e)));
+(async () => {
+  try {
+    await refreshUsers();
+    const auto = !MOBILE && api.rememberAuto ? await api.rememberAuto() : null; // usuário lembrado: abre direto
+    if (auto) { S = auto.snapshot; rememberedNow = true; enterApp(auto.user); return; }
+    $('#lockPass').focus();
+  } catch (e) { showFatal(errMsg(e)); }
+})();
 
 // ganchos para a barra de teclas do app Android (Esc, Tab, Ctrl, setas) falarem com o terminal ativo
 window.__netdeck = {

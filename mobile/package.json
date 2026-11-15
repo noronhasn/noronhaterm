@@ -1,7 +1,7 @@
 {
   "name": "netdeck-android",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "NetDeck para Android (Capacitor): mesma interface do computador + SSH/Telnet nativos",
   "scripts": {
     "build:web": "node scripts/build-web.js",

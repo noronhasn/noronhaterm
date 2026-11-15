@@ -4,7 +4,7 @@ for (const st of [process.stdout, process.stderr]) { try { st.on('error', () => 
 process.on('uncaughtException', (e) => {
   try { require('fs').appendFileSync(require('path').join(require('os').tmpdir(), 'netdeck-erro.log'), `${new Date().toISOString()} ${e && e.stack || e}\n`); } catch { /* ignora */ }
 });
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -15,6 +15,7 @@ const { SshSession, connectOnly } = require('./ssh');
 const { TelnetSession } = require('./telnet');
 const { SerialSession, listPorts } = require('./serial');
 const { BackupScheduler, restoreVault } = require('./backup');
+const { Remember } = require('./remember');
 const { ServerManager } = require('./servers');
 const { SessionLogger } = require('./sessionlog');
 
@@ -152,8 +153,40 @@ function registerIpc() {
     return snapshot();
   });
 
+  const remember = () => new Remember({
+    file: path.join(app.getPath('userData'), 'remember.json'),
+    enc: (t) => safeStorage.encryptString(t), dec: (b) => safeStorage.decryptString(b),
+  });
+  const canRemember = () => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return false;
+      return !(safeStorage.getSelectedStorageBackend && safeStorage.getSelectedStorageBackend() === 'basic_text'); // Linux sem chaveiro = sem proteção real
+    } catch { return false; }
+  };
+  ipcMain.handle('remember:can', () => canRemember());
+  ipcMain.handle('remember:has', (_e, user) => remember().has(user));
+  ipcMain.handle('remember:set', (_e, user, password, on) => {
+    if (!on) { remember().forget(user); return false; }
+    if (!canRemember()) throw new Error('Este computador não tem como guardar a senha com segurança (falta o chaveiro do sistema).');
+    remember().set(user, password);
+    return true;
+  });
+  ipcMain.handle('remember:auto', () => { // abre direto o último usuário lembrado, só ao iniciar o app
+    const r = remember();
+    const l = r.last();
+    if (!l) return null;
+    try {
+      store = new Store(Vault.open(vaultFile(l.user), l.password));
+      return { user: l.user, snapshot: snapshot() };
+    } catch { r.forget(l.user); return null; }
+  });
   ipcMain.handle('vault:lock', () => { if (store) { store.vault.lock(); store = null; } });
-  ipcMain.handle('vault:changePassword', (_e, pw) => { requireStore().vault.changePassword(pw); });
+  ipcMain.handle('vault:changePassword', (_e, pw) => {
+    requireStore().vault.changePassword(pw);
+    const user = path.basename(store.vault.file, '.vault');
+    const r = remember();
+    if (r.has(user)) { try { r.set(user, pw); } catch { r.forget(user); } } // mantém a senha lembrada em dia
+  });
   ipcMain.handle('store:snapshot', () => snapshot());
 
   ipcMain.handle('store:call', (_e, method, args) => {

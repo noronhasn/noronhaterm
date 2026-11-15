@@ -282,3 +282,15 @@ test('normalizeAddress: tira zero à esquerda de IPv4 e deixa o resto como está
   assert.equal(normalizeAddress('switch.exemplo.com'), 'switch.exemplo.com');
   assert.equal(normalizeAddress('fe80::1'), 'fe80::1');
 });
+
+test('usuário/senha salvos só para o host: resolve e some junto com o host', () => {
+  const st = newStore();
+  const h = st.addHost({ name: 'sw1', address: '10.0.0.1' });
+  const id = st.addIdentity({ name: 'sw1', username: 'admin', password: 'segredo', ownerHostId: h.id });
+  st.updateHost(h.id, { identityId: id.id });
+  const r = st.resolveHost(h.id);
+  assert.equal(r.identity.username, 'admin');
+  assert.equal(r.identity.password, 'segredo');
+  st.removeHost(h.id);
+  assert.equal(st.data.identities.length, 0);
+});
