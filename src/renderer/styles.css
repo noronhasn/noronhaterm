@@ -136,3 +136,22 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 
 .pick-list { max-height: 260px; overflow: auto; }
 .pick-list .pick.on { border-color: var(--accent, #3b82f6); background: rgba(59,130,246,.18); }
+
+/* ---- tema da interface: Matrix (verde sobre preto, com chuva de código nas telas vazias) ---- */
+.rain { display: none; position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.lock-card { position: relative; z-index: 1; }
+.empty > *:not(.rain) { position: relative; z-index: 1; }
+:root[data-ui="matrix"] {
+  --bg: #010401; --panel: #040a04; --panel2: #071107; --line: #0f4a1c; --text: #4dff7c; --muted: #1fa045;
+  --accent: #33ff66; --accent2: #0e7a2b; --danger: #ff4d4d; --ok: #33ff66; --warn: #d8ff3a;
+  font-family: 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', monospace;
+}
+:root[data-ui="matrix"] .rain { display: block; }
+:root[data-ui="matrix"] .lock { background: #000; }
+:root[data-ui="matrix"] .lock-card { background: rgba(2, 10, 2, .88); box-shadow: 0 0 24px rgba(51, 255, 102, .25); }
+:root[data-ui="matrix"] input, :root[data-ui="matrix"] select, :root[data-ui="matrix"] textarea { background: #010601; }
+:root[data-ui="matrix"] .tab.active { background: #0a2a10; }
+:root[data-ui="matrix"] button.primary { color: #eaffef; }
+:root[data-ui="matrix"] .empty .logo, :root[data-ui="matrix"] .lock .logo { text-shadow: 0 0 10px #33ff66; }
+:root[data-ui="matrix"] dialog { background: #030a03; border-color: var(--line); }
+:root[data-ui="matrix"] .empty > *:not(.rain) { background: rgba(0, 0, 0, .82); padding: 2px 14px; justify-self: center; border-radius: 4px; }

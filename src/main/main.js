@@ -17,6 +17,7 @@ const { SerialSession, listPorts } = require('./serial');
 const { BackupScheduler, restoreVault } = require('./backup');
 const { Remember } = require('./remember');
 const rdp = require('./rdp');
+const { FtpClient } = require('./ftpclient');
 const { ServerManager } = require('./servers');
 const { SessionLogger } = require('./sessionlog');
 
@@ -238,6 +239,35 @@ function registerIpc() {
     for (const f of r.filePaths) out.push(await getSsh(id).sftpUpload(f, remoteDir));
     return out;
   });
+
+  // cliente FTP (janela de pastas): uma conexão por janela aberta
+  const ftpClients = new Map();
+  const getFtp = (id) => { const c = ftpClients.get(id); if (!c) throw new Error('Conexão FTP fechada'); return c; };
+  ipcMain.handle('ftpc:open', async (_e, hostId, creds) => {
+    const h = requireStore().resolveHost(hostId);
+    const user = (creds && creds.user) || (h.identity && h.identity.username) || '';
+    const pass = creds && creds.user ? creds.password || '' : (h.identity && h.identity.password) || '';
+    if (!user) return { needCreds: true };
+    const c = await new FtpClient().connect({ host: h.address, port: h.port || 21, user, password: pass });
+    const id = crypto.randomUUID();
+    ftpClients.set(id, c);
+    return { id };
+  });
+  ipcMain.handle('ftpc:list', (_e, id, dir) => getFtp(id).list(dir));
+  ipcMain.handle('ftpc:download', async (_e, id, remote) => {
+    const r = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('downloads'), path.posix.basename(String(remote)) || 'arquivo') });
+    if (r.canceled) return null;
+    await getFtp(id).download(remote, r.filePath);
+    return r.filePath;
+  });
+  ipcMain.handle('ftpc:upload', async (_e, id, dir) => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'] });
+    if (r.canceled) return [];
+    const out = [];
+    for (const f of r.filePaths) out.push(await getFtp(id).upload(f, dir));
+    return out;
+  });
+  ipcMain.handle('ftpc:close', (_e, id) => { const c = ftpClients.get(id); if (c) { c.close(); ftpClients.delete(id); } });
 
   ipcMain.handle('scp:download', async (_e, id, remote) => {
     const r = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('downloads'), path.posix.basename(String(remote).replace(/[:]/g, '/')) || 'arquivo') });

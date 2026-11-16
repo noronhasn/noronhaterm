@@ -197,6 +197,7 @@ function createApp(deps) {
     rdpOpen: NOT_ON_ANDROID('RDP'),
     sftpDownload: NOT_ON_ANDROID('SFTP'),
     sftpUpload: NOT_ON_ANDROID('SFTP'),
+    ftpOpen: NOT_ON_ANDROID('FTP'),
     scpDownload: NOT_ON_ANDROID('SCP'),
     scpUpload: NOT_ON_ANDROID('SCP'),
     importSshConfig: NOT_ON_ANDROID('Importar ~/.ssh/config'),

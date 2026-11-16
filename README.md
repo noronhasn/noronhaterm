@@ -18,8 +18,8 @@ Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** g
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.10.deb`
-- AppImage: `chmod +x NetDeck-0.4.10.AppImage && ./NetDeck-0.4.10.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.10.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.12.deb`
+- AppImage: `chmod +x NetDeck-0.4.12.AppImage && ./NetDeck-0.4.12.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.12.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: o `.deb` instala uma regra do sistema (udev `uaccess`) que libera `/dev/ttyUSB*` e `/dev/ttyACM*` para quem está logado, sem precisar de grupo. Se a porta já estava ligada, desligue e ligue o cabo USB uma vez.
 
@@ -102,3 +102,9 @@ App Android (APK) com SSH, Telnet, pastas/hosts, cofre criptografado, múltiplas
 
 ## SCP
 Se o equipamento não aceita SFTP, o botão SFTP cai sozinho para **SCP**: escreva o caminho do arquivo no equipamento e use Baixar / Enviar (o SCP não lista pastas).
+
+## Cliente FTP
+Host com protocolo **FTP** (porta 21): duplo clique abre uma janela de pastas (estilo FileZilla) para navegar, baixar e enviar arquivos. FTP puro, sem cifra: use em rede confiável. Não existe no Android.
+
+## Tema Matrix
+Botão **Aa** → *Tema da interface* → **Matrix**: interface verde sobre preto, terminal verde e chuva de código na tela de senha e na tela vazia (só aparece quando não há terminal aberto). Volta ao normal em *Padrão*.

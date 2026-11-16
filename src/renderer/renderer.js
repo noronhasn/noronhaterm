@@ -381,7 +381,7 @@ async function hostDialog(existing, folderId) {
   const own = existing ? S.identities.find((x) => x.ownerHostId === existing.id) : null; // usuário/senha salvos só neste host
   const i = {
     name: h('input', { value: d.name || '', placeholder: 'ex.: web-01' }),
-    protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ...(MOBILE ? [] : [['serial', 'Serial'], ['rdp', 'RDP']])], d.protocol),
+    protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ...(MOBILE ? [] : [['serial', 'Serial'], ['rdp', 'RDP'], ['ftp', 'FTP']])], d.protocol),
     folder: sel(folderOptions(), d.folderId || ''),
     address: h('input', { value: d.address || '', placeholder: 'IP ou hostname' }),
     port: h('input', { type: 'number', value: d.port ?? '' }),
@@ -434,7 +434,7 @@ async function hostDialog(existing, folderId) {
 
   // protocolo escolhido por "chips" (o select fica só como valor interno)
   const chips = h('div', { class: 'chips' });
-  const PROTO = [['ssh', '🔐 SSH'], ['telnet', '📟 Telnet'], ...(MOBILE ? [] : [['serial', '🔌 Serial'], ['rdp', '🖥 RDP']])];
+  const PROTO = [['ssh', '🔐 SSH'], ['telnet', '📟 Telnet'], ...(MOBILE ? [] : [['serial', '🔌 Serial'], ['rdp', '🖥 RDP'], ['ftp', '📂 FTP']])];
   const paintChips = () => chips.replaceChildren(...PROTO.map(([v, l]) =>
     h('button', { type: 'button', class: 'chip' + (i.protocol.value === v ? ' on' : ''), onclick: () => { i.protocol.value = v; sync(); } }, l)));
   const advanced = h('details', { class: 'adv' }, h('summary', {}, '⚙ Opções avançadas'),
@@ -452,9 +452,9 @@ async function hostDialog(existing, folderId) {
     net.hidden = p === 'serial';
     serial.hidden = p !== 'serial';
     sshOnly.hidden = p !== 'ssh';
-    jumpRow.hidden = p === 'rdp';
+    jumpRow.hidden = p === 'rdp' || p === 'ftp';
     telnetOnly.hidden = p !== 'telnet';
-    if (!existing || (existing && p !== existing.protocol)) i.port.value = p === 'telnet' ? 23 : p === 'ssh' ? 22 : p === 'rdp' ? 3389 : '';
+    if (!existing || (existing && p !== existing.protocol)) i.port.value = p === 'telnet' ? 23 : p === 'ssh' ? 22 : p === 'rdp' ? 3389 : p === 'ftp' ? 21 : '';
     paintChips();
   };
   i.protocol.onchange = sync;
@@ -488,7 +488,7 @@ async function hostDialog(existing, folderId) {
         patch.port = null;
       } else {
         patch.address = i.address.value.trim();
-        patch.port = Number(i.port.value) || (p === 'telnet' ? 23 : p === 'rdp' ? 3389 : 22);
+        patch.port = Number(i.port.value) || (p === 'telnet' ? 23 : p === 'rdp' ? 3389 : p === 'ftp' ? 21 : 22);
         patch.identityId = i.identity.value || null;
         patch.jumpHostId = i.jump.value || null;
         if (p === 'ssh') { patch.forwards = lines(i.forwards.value); patch.legacyAlgorithms = i.legacy.checked; }
@@ -811,6 +811,52 @@ const { Layout } = window;
 
 function setEmpty() { $('#empty').hidden = tabList.length > 0; }
 
+// Tema da interface: Padrão ou Matrix (verde, com chuva de código na tela de senha e na tela vazia)
+const UI_THEMES = { padrao: 'Padrão', matrix: 'Matrix (verde, chuva de código)' };
+const uiTheme = () => { try { const v = localStorage.getItem('uiTheme'); return UI_THEMES[v] ? v : 'padrao'; } catch { return 'padrao'; } };
+function applyUi(id) {
+  const v = UI_THEMES[id] ? id : 'padrao';
+  if (document.documentElement) document.documentElement.dataset.ui = v;
+  try { localStorage.setItem('uiTheme', v); } catch { /* ignora */ }
+  if (v === 'matrix') startRain();
+}
+let rainOn = false;
+function startRain() {
+  if (rainOn) return;
+  rainOn = true;
+  const GL = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ0123456789ABCDEFZ:.=*+-<>';
+  const SZ = 16;
+  const state = new WeakMap();
+  let last = 0;
+  const frame = (t) => {
+    if (!document.documentElement || document.documentElement.dataset.ui !== 'matrix') { rainOn = false; return; }
+    requestAnimationFrame(frame);
+    if (t - last < 55 || document.hidden) return; // ~18 quadros por segundo: leve para a CPU
+    last = t;
+    document.querySelectorAll('canvas.rain').forEach((cv) => {
+      const w = cv.clientWidth; const hh = cv.clientHeight;
+      if (!w || !hh) return;
+      let st = state.get(cv);
+      if (!st || cv.width !== w || cv.height !== hh) {
+        cv.width = w; cv.height = hh;
+        st = { drops: Array.from({ length: Math.ceil(w / SZ) }, () => Math.random() * -40) };
+        state.set(cv, st);
+      }
+      const c = cv.getContext('2d');
+      c.fillStyle = 'rgba(0,0,0,.09)'; c.fillRect(0, 0, w, hh);
+      c.font = SZ + 'px monospace';
+      st.drops.forEach((y, i) => {
+        const ch = GL[Math.floor(Math.random() * GL.length)];
+        c.fillStyle = '#d8ffe3'; c.fillText(ch, i * SZ, y * SZ);
+        c.fillStyle = '#1fdc50'; c.fillText(GL[Math.floor(Math.random() * GL.length)], i * SZ, (y - 1) * SZ);
+        st.drops[i] = y * SZ > hh && Math.random() > 0.975 ? 0 : y + 1;
+      });
+    });
+  };
+  requestAnimationFrame(frame);
+}
+applyUi(uiTheme());
+
 // Fonte do terminal (botão "Aa"): família + tamanho + altura da linha, lembrados neste computador.
 const FONTS = ['Cascadia Mono', 'Cascadia Code', 'Consolas', 'Courier New', 'Lucida Console', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Hack', 'Ubuntu Mono', 'DejaVu Sans Mono'];
 const FONT_FALLBACK = "'DejaVu Sans Mono',Consolas,monospace";
@@ -859,6 +905,7 @@ $('#btnFont').onclick = async () => {
   const family = sel(list.map((f) => [f, f]), cur.family);
   const custom = h('input', { placeholder: 'ou digite o nome de outra fonte instalada' });
   const theme = sel(Object.entries(COLOR_THEMES).map(([k, v]) => [k, v[0]]), cur.theme);
+  const ui = sel(Object.entries(UI_THEMES), uiTheme());
   const size = h('input', { type: 'number', min: '8', max: '40', step: '1' }); size.value = String(cur.size);
   const lh = h('input', { type: 'number', min: '1', max: '1.6', step: '0.05' }); lh.value = String(cur.lineHeight);
   const scroll = sel(SCROLLBACKS.map((n) => [String(n), n.toLocaleString('pt-BR') + ' linhas']), String(SCROLLBACKS.includes(cur.scrollback) ? cur.scrollback : FONT_DEFAULT.scrollback));
@@ -876,13 +923,20 @@ $('#btnFont').onclick = async () => {
   await dialog('Fonte e cores do terminal', [
     h('div', { class: 'grid2' }, field('Fonte', family), field('Outra fonte (opcional)', custom)),
     h('div', { class: 'grid2' }, field('Tamanho (8–40)', size), field('Altura da linha (1–1.6)', lh)),
-    field('Cores do texto e do fundo', theme),
+    field('Tema da interface', ui),
+    field('Cores do texto e do fundo do terminal', theme),
     field('Histórico para rolar (linhas guardadas por terminal)', scroll),
     preview,
     h('div', { class: 'muted' }, 'Só aparecem fontes instaladas no Windows. Mais linhas de histórico usam mais memória. Atalhos no terminal: Ctrl + roda do mouse, Ctrl + "+" / "-", Ctrl + 0 (padrão).'),
   ], [cancelBtn,
-    { label: 'Padrão', onClick: async (close) => { applyFont({ ...FONT_DEFAULT }); close(true); } },
-    { label: 'Aplicar', cls: 'primary', onClick: async (close) => { applyFont(sanitizeFont(read())); close(true); } },
+    { label: 'Padrão', onClick: async (close) => { applyFont({ ...FONT_DEFAULT }); applyUi('padrao'); close(true); } },
+    { label: 'Aplicar', cls: 'primary', onClick: async (close) => {
+      const f = sanitizeFont(read());
+      if (ui.value === 'matrix' && uiTheme() !== 'matrix' && f.theme === 'padrao') f.theme = 'matrix'; // ao ligar o Matrix, o terminal também fica verde
+      applyUi(ui.value);
+      applyFont(f);
+      close(true);
+    } },
   ]);
 };
 function sanitizeFont(f) {
@@ -1254,7 +1308,62 @@ function openHost(hostId) {
     api.rdpOpen(hostId).then(() => toast('Abrindo acesso remoto…', true), (e) => toast(errMsg(e)));
     return;
   }
+  if (x.protocol === 'ftp') { ftpDialog(x); return; }
   newTab({ name: x.name, protocol: x.protocol, hostId });
+}
+
+// janela de pastas FTP (estilo FileZilla): lista, entra nas pastas, baixa e envia
+async function ftpDialog(host) {
+  let creds = null;
+  let r;
+  try {
+    r = await api.ftpOpen(host.id, null);
+    if (r.needCreds) {
+      const u = h('input', { placeholder: 'usuário (ou anonymous)', autocomplete: 'off' });
+      const pw = h('input', { type: 'password', autocomplete: 'new-password' });
+      const ok = await dialog(`FTP — ${host.name}`, [field('Usuário', u), field('Senha', pw), h('div', { class: 'muted' }, 'Salve usuário e senha no host para não perguntar. FTP não é cifrado: use em rede confiável.')],
+        [cancelBtn, { label: 'Conectar', cls: 'primary', onClick: (c) => c(true) }]);
+      if (!ok) return;
+      creds = { user: u.value.trim() || 'anonymous', password: pw.value };
+      r = await api.ftpOpen(host.id, creds);
+    }
+  } catch (e) { return toast(errMsg(e)); }
+  const id = r.id;
+  let cwd = '/';
+  let selected = null;
+  const pathEl = h('div', { class: 'sftp-path muted' });
+  const listEl = h('div', { class: 'list', style: 'min-height:260px' });
+  const fmtSize = (n) => (n > 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n > 1e6 ? (n / 1e6).toFixed(1) + ' MB' : n > 1e3 ? (n / 1e3).toFixed(1) + ' KB' : n + ' B');
+  const join = (a, b) => (a === '/' ? '' : a) + '/' + b;
+  async function load(p) {
+    try {
+      const l = await api.ftpList(id, p);
+      cwd = l.path; selected = null; pathEl.textContent = cwd;
+      const rows = [];
+      if (cwd !== '/') rows.push(h('div', { class: 'sftp-row', ondblclick: () => load(cwd.replace(/\/[^/]+\/?$/, '') || '/') }, '↩', '..', '', ''));
+      l.items.forEach((it) => {
+        const row = h('div', {
+          class: 'sftp-row',
+          onclick: () => { listEl.querySelectorAll('.sel').forEach((n) => n.classList.remove('sel')); row.classList.add('sel'); selected = it.isDir ? null : it; },
+          ondblclick: () => { if (it.isDir) load(join(cwd, it.name)); },
+        }, it.isDir ? '📁' : '📄', it.name, it.isDir ? '' : fmtSize(it.size), it.mtime ? new Date(it.mtime).toLocaleString() : '');
+        rows.push(row);
+      });
+      listEl.replaceChildren(...rows);
+    } catch (e) { toast(errMsg(e)); }
+  }
+  load('/');
+  await dialog(`FTP — ${host.name}`, [pathEl, listEl], [
+    { label: '⬇ Baixar selecionado', onClick: async () => {
+      if (!selected) return toast('Clique em um arquivo primeiro');
+      try { const f = await api.ftpDownload(id, join(cwd, selected.name)); if (f) toast('Salvo em ' + f, true); } catch (e) { toast(errMsg(e)); }
+    } },
+    { label: '⬆ Enviar arquivos…', onClick: async () => {
+      try { const o = await api.ftpUpload(id, cwd); if (o.length) { toast(`${o.length} arquivo(s) enviado(s)`, true); load(cwd); } } catch (e) { toast(errMsg(e)); }
+    } },
+    { label: 'Fechar', onClick: (c) => c(true) },
+  ]);
+  api.ftpClose(id);
 }
 
 function parseQuick(input) {
