@@ -18,8 +18,8 @@ Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** g
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.9.deb`
-- AppImage: `chmod +x NetDeck-0.4.9.AppImage && ./NetDeck-0.4.9.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.9.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.10.deb`
+- AppImage: `chmod +x NetDeck-0.4.10.AppImage && ./NetDeck-0.4.10.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.10.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: o `.deb` instala uma regra do sistema (udev `uaccess`) que libera `/dev/ttyUSB*` e `/dev/ttyACM*` para quem está logado, sem precisar de grupo. Se a porta já estava ligada, desligue e ligue o cabo USB uma vez.
 
@@ -99,3 +99,6 @@ App Android (APK) com SSH, Telnet, pastas/hosts, cofre criptografado, múltiplas
 ## RDP e arrastar abas
 - Host com protocolo **RDP** abre o cliente do sistema: `mstsc` no Windows, `xfreerdp3`/`xfreerdp`/`remmina` no Linux (instale um deles). Usuário e senha salvos no host são usados sem ir para a linha de comando.
 - Arraste uma aba para trocar a ordem. Arraste o título de um painel (em abas divididas) para trocar de lugar, mover para outra borda ou soltar em outra aba.
+
+## SCP
+Se o equipamento não aceita SFTP, o botão SFTP cai sozinho para **SCP**: escreva o caminho do arquivo no equipamento e use Baixar / Enviar (o SCP não lista pastas).

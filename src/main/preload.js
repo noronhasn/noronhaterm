@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('api', {
   sftpList: (id, dir) => inv('sftp:list', id, dir),
   sftpDownload: (id, remote) => inv('sftp:download', id, remote),
   sftpUpload: (id, dir) => inv('sftp:upload', id, dir),
+  scpDownload: (id, remote) => inv('scp:download', id, remote),
+  scpUpload: (id, remote) => inv('scp:upload', id, remote),
 
   exportData: (withSecrets) => inv('data:export', withSecrets),
   importData: () => inv('data:import'),

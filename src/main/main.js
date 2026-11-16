@@ -239,6 +239,18 @@ function registerIpc() {
     return out;
   });
 
+  ipcMain.handle('scp:download', async (_e, id, remote) => {
+    const r = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('downloads'), path.posix.basename(String(remote).replace(/[:]/g, '/')) || 'arquivo') });
+    if (r.canceled) return null;
+    await getSsh(id).scpDownload(remote, r.filePath);
+    return r.filePath;
+  });
+  ipcMain.handle('scp:upload', async (_e, id, remote) => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openFile'] });
+    if (r.canceled) return null;
+    return getSsh(id).scpUpload(r.filePaths[0], remote);
+  });
+
   // ssh-copy-id: conecta ao host (com a identidade dele) e instala a chave pública escolhida
   ipcMain.handle('keys:copyId', async (_e, hostId, keyId) => {
     const st = requireStore();

@@ -1428,6 +1428,9 @@ $('#btnSftp').onclick = async () => {
   if (!tab || !tab.connected || tab.protocol !== 'ssh') return toast('Abra uma aba SSH conectada primeiro');
   let cwd = '.';
   let selected = null;
+  let scpMode = false; // equipamento sem SFTP: cai para SCP (sem lista de pastas, só pelo caminho)
+  let loaded = false;
+  const remoteIn = h('input', { placeholder: 'ex.: flash:/config.cfg  ou  /tmp/firmware.bin' });
   const pathEl = h('div', { class: 'sftp-path muted' });
   const listEl = h('div', { class: 'list', style: 'min-height:260px' });
 
@@ -1448,18 +1451,38 @@ $('#btnSftp').onclick = async () => {
         items.push(row);
       });
       listEl.replaceChildren(...items);
-    } catch (e) { toast(errMsg(e)); }
+      loaded = true;
+    } catch (e) {
+      if (loaded || scpMode) return toast(errMsg(e));
+      scpMode = true; // primeira tentativa falhou: este equipamento não tem SFTP
+      pathEl.textContent = 'O equipamento não respondeu ao SFTP (' + errMsg(e) + '). Modo SCP ligado.';
+      listEl.replaceChildren(
+        field('Caminho do arquivo no equipamento', remoteIn),
+        h('div', { class: 'muted' }, 'SCP não lista pastas: escreva o caminho. Baixar = caminho do arquivo no equipamento. Enviar = caminho de destino (arquivo ou pasta).'));
+    }
   }
 
   const fmtSize = (n) => (n > 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n > 1e6 ? (n / 1e6).toFixed(1) + ' MB' : n > 1e3 ? (n / 1e3).toFixed(1) + ' KB' : n + ' B');
   load('.');
   await dialog(`SFTP — ${tab.name}`, [pathEl, listEl], [
     { label: '⬇ Baixar selecionado', onClick: async () => {
+      if (scpMode) {
+        const rp = remoteIn.value.trim();
+        if (!rp) return toast('Escreva o caminho do arquivo no equipamento');
+        try { const f = await api.scpDownload(tab.sid, rp); if (f) toast('Salvo em ' + f, true); } catch (e) { toast(errMsg(e)); }
+        return;
+      }
       if (!selected) return toast('Clique em um arquivo primeiro');
       const p = await api.sftpDownload(tab.sid, (cwd === '/' ? '' : cwd) + '/' + selected.name);
       if (p) toast('Salvo em ' + p, true);
     } },
     { label: '⬆ Enviar arquivos…', onClick: async () => {
+      if (scpMode) {
+        const rp = remoteIn.value.trim();
+        if (!rp) return toast('Escreva o caminho de destino no equipamento');
+        try { const f = await api.scpUpload(tab.sid, rp); if (f) toast('Enviado para ' + f, true); } catch (e) { toast(errMsg(e)); }
+        return;
+      }
       const r = await api.sftpUpload(tab.sid, cwd);
       if (r.length) { toast(`${r.length} arquivo(s) enviado(s)`, true); load(cwd); }
     } },

@@ -232,6 +232,20 @@ class SshSession {
     return dest;
   }
 
+  // ---- SCP (para equipamentos sem SFTP) ----
+  _exec(cmd) { return new Promise((res, rej) => this.conn.exec(cmd, (e, st) => (e ? rej(e) : res(st)))); }
+
+  async scpDownload(remote, local) {
+    const scp = require('./scp');
+    return scp.download(await this._exec(`scp -f ${scp.shq(remote)}`), local);
+  }
+
+  async scpUpload(local, remote) {
+    const scp = require('./scp');
+    await scp.upload(await this._exec(`scp -t ${scp.shq(remote)}`), local);
+    return remote;
+  }
+
   // ssh-copy-id embutido: instala a chave pública em ~/.ssh/authorized_keys
   async installPublicKey(publicKey) {
     const line = String(publicKey).trim();
