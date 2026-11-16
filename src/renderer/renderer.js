@@ -814,10 +814,19 @@ function setEmpty() { $('#empty').hidden = tabList.length > 0; }
 // Tema da interface: Padrão ou Matrix (verde, com chuva de código na tela de senha e na tela vazia)
 const UI_THEMES = { padrao: 'Padrão', matrix: 'Matrix (verde, chuva de código)' };
 const uiTheme = () => { try { const v = localStorage.getItem('uiTheme'); return UI_THEMES[v] ? v : 'padrao'; } catch { return 'padrao'; } };
+const RAIN_MODES = { empty: 'Só nas telas vazias', low: 'Em toda a janela, atrás do terminal (fraca)', mid: 'Em toda a janela, atrás do terminal (média)' };
+const rainMode = () => { try { const v = localStorage.getItem('uiRain'); return RAIN_MODES[v] ? v : 'empty'; } catch { return 'empty'; } };
+const rainAll = () => uiTheme() === 'matrix' && rainMode() !== 'empty'; // chuva em toda a janela: painéis e terminal ficam translúcidos
+function applyRain(m) {
+  const v = RAIN_MODES[m] ? m : 'empty';
+  try { localStorage.setItem('uiRain', v); } catch { /* ignora */ }
+  if (document.documentElement) document.documentElement.dataset.rain = v;
+}
 function applyUi(id) {
   const v = UI_THEMES[id] ? id : 'padrao';
   if (document.documentElement) document.documentElement.dataset.ui = v;
   try { localStorage.setItem('uiTheme', v); } catch { /* ignora */ }
+  applyRain(rainMode());
   if (v === 'matrix') startRain();
 }
 let rainOn = false;
@@ -872,7 +881,12 @@ const COLOR_THEMES = {
   dracula: ['Dracula', { background: '#282a36', foreground: '#f8f8f2', cursor: '#f8f8f2', selectionBackground: '#44475a' }],
   claro: ['Claro', { background: '#fafafa', foreground: '#1f2328', cursor: '#0969da', selectionBackground: '#b6d4fe' }],
 };
-const themeFor = (id) => ({ ...THEME, ...(COLOR_THEMES[id] || COLOR_THEMES.padrao)[1] });
+const hexA = (hex, a) => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex); return m ? `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})` : hex; };
+const themeFor = (id) => {
+  const t = { ...THEME, ...(COLOR_THEMES[id] || COLOR_THEMES.padrao)[1] };
+  if (rainAll()) t.background = hexA(t.background, rainMode() === 'low' ? 0.62 : 0.42); // deixa a chuva aparecer atrás do texto
+  return t;
+};
 function fontPrefs() {
   let o = {};
   try { o = JSON.parse(localStorage.getItem('termFont') || '{}') || {}; } catch { o = {}; }
@@ -906,6 +920,7 @@ $('#btnFont').onclick = async () => {
   const custom = h('input', { placeholder: 'ou digite o nome de outra fonte instalada' });
   const theme = sel(Object.entries(COLOR_THEMES).map(([k, v]) => [k, v[0]]), cur.theme);
   const ui = sel(Object.entries(UI_THEMES), uiTheme());
+  const rain = sel(Object.entries(RAIN_MODES), rainMode());
   const size = h('input', { type: 'number', min: '8', max: '40', step: '1' }); size.value = String(cur.size);
   const lh = h('input', { type: 'number', min: '1', max: '1.6', step: '0.05' }); lh.value = String(cur.lineHeight);
   const scroll = sel(SCROLLBACKS.map((n) => [String(n), n.toLocaleString('pt-BR') + ' linhas']), String(SCROLLBACKS.includes(cur.scrollback) ? cur.scrollback : FONT_DEFAULT.scrollback));
@@ -924,17 +939,19 @@ $('#btnFont').onclick = async () => {
     h('div', { class: 'grid2' }, field('Fonte', family), field('Outra fonte (opcional)', custom)),
     h('div', { class: 'grid2' }, field('Tamanho (8–40)', size), field('Altura da linha (1–1.6)', lh)),
     field('Tema da interface', ui),
+    field('Chuva de código (só no tema Matrix)', rain),
     field('Cores do texto e do fundo do terminal', theme),
     field('Histórico para rolar (linhas guardadas por terminal)', scroll),
     preview,
     h('div', { class: 'muted' }, 'Só aparecem fontes instaladas no Windows. Mais linhas de histórico usam mais memória. Atalhos no terminal: Ctrl + roda do mouse, Ctrl + "+" / "-", Ctrl + 0 (padrão).'),
   ], [cancelBtn,
-    { label: 'Padrão', onClick: async (close) => { applyFont({ ...FONT_DEFAULT }); applyUi('padrao'); close(true); } },
+    { label: 'Padrão', onClick: async (close) => { applyFont({ ...FONT_DEFAULT }); applyRain('empty'); applyUi('padrao'); applyFont({ ...FONT_DEFAULT }); close(true); } },
     { label: 'Aplicar', cls: 'primary', onClick: async (close) => {
       const f = sanitizeFont(read());
       if (ui.value === 'matrix' && uiTheme() !== 'matrix' && f.theme === 'padrao') f.theme = 'matrix'; // ao ligar o Matrix, o terminal também fica verde
+      applyRain(rain.value);
       applyUi(ui.value);
-      applyFont(f);
+      applyFont(f); // aplica de novo para o terminal pegar a transparência certa
       close(true);
     } },
   ]);
@@ -952,7 +969,7 @@ function makePane({ name, protocol, hostId, adhoc }) {
   const fp = fontPrefs();
   const term = new Terminal({
     fontFamily: fontStack(fp.family), fontSize: fp.size, lineHeight: fp.lineHeight, cursorBlink: true,
-    scrollback: fp.scrollback, theme: themeFor(fp.theme), allowProposedApi: false,
+    scrollback: fp.scrollback, theme: themeFor(fp.theme), allowProposedApi: false, allowTransparency: true,
   });
   el.style.background = themeFor(fp.theme).background;
   const fit = new FitAddon.FitAddon();

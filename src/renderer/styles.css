@@ -155,3 +155,17 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 :root[data-ui="matrix"] .empty .logo, :root[data-ui="matrix"] .lock .logo { text-shadow: 0 0 10px #33ff66; }
 :root[data-ui="matrix"] dialog { background: #030a03; border-color: var(--line); }
 :root[data-ui="matrix"] .empty > *:not(.rain) { background: rgba(0, 0, 0, .82); padding: 2px 14px; justify-self: center; border-radius: 4px; }
+
+/* chuva em toda a janela: o canvas fica no fundo e os painéis ficam translúcidos */
+.rain-bg { position: fixed; z-index: 0; }
+:root[data-ui="matrix"][data-rain="low"] .rain-bg, :root[data-ui="matrix"][data-rain="mid"] .rain-bg { display: block; }
+:root[data-ui="matrix"][data-rain="low"] .rain-bg { opacity: .4; }
+:root[data-ui="matrix"][data-rain="mid"] .rain-bg { opacity: .7; }
+:root[data-ui="matrix"][data-rain="low"] .rain:not(.rain-bg), :root[data-ui="matrix"][data-rain="mid"] .rain:not(.rain-bg) { display: none; }
+:root[data-ui="matrix"]:not([data-rain="low"]):not([data-rain="mid"]) .rain-bg { display: none; }
+:root[data-ui="matrix"][data-rain="low"], :root[data-ui="matrix"][data-rain="mid"] { --panel: rgba(4, 10, 4, .72); --panel2: rgba(7, 17, 7, .72); }
+:root[data-ui="matrix"][data-rain="low"] body, :root[data-ui="matrix"][data-rain="mid"] body, :root[data-ui="matrix"][data-rain="low"] html, :root[data-ui="matrix"][data-rain="mid"] html { background: #000; }
+:root[data-ui="matrix"][data-rain="low"] #app, :root[data-ui="matrix"][data-rain="mid"] #app { position: relative; z-index: 1; background: transparent; }
+:root[data-ui="matrix"][data-rain="low"] .lock, :root[data-ui="matrix"][data-rain="mid"] .lock { background: transparent; }
+:root[data-ui="matrix"][data-rain="low"] .terms, :root[data-ui="matrix"][data-rain="mid"] .terms { background: transparent; }
+:root[data-ui="matrix"][data-rain="low"] .empty > *:not(.rain), :root[data-ui="matrix"][data-rain="mid"] .empty > *:not(.rain) { background: rgba(0, 0, 0, .82); }
