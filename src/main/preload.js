@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('api', {
   answerPrompt: (id, v) => ipcRenderer.send('prompt:answer', id, v),
 
   serialList: () => inv('serial:list'),
+  rdpOpen: (hostId) => inv('rdp:open', hostId),
   sftpList: (id, dir) => inv('sftp:list', id, dir),
   sftpDownload: (id, remote) => inv('sftp:download', id, remote),
   sftpUpload: (id, dir) => inv('sftp:upload', id, dir),

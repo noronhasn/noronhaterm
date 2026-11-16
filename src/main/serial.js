@@ -38,7 +38,7 @@ class SerialSession {
       this.port.open((err) => {
         if (err) {
           const dica = /EACCES|permission/i.test(err.message) && process.platform === 'linux'
-            ? ' — sem permissão na porta. No terminal rode: sudo usermod -aG dialout $USER  (depois saia da sessão e entre de novo)'
+            ? ' — sem permissão na porta. Reinstale o NetDeck (.deb) para liberar as portas seriais, ou desligue e ligue o cabo USB. Alternativa: sudo usermod -aG dialout $USER e entre de novo na sessão.'
             : '';
           return reject(new Error(`Não foi possível abrir ${opts.path}: ${err.message}${dica}`));
         }

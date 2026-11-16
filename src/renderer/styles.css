@@ -47,7 +47,7 @@ button.on { background: #5b2430; border-color: var(--danger); color: #ffb4ae; }
 .row .acts button { padding: 0 5px; border: none; background: none; color: var(--muted); }
 .row .acts button:hover { color: var(--text); }
 .badge { font-size: 10px; padding: 1px 5px; border-radius: 8px; background: #2a3142; color: var(--muted); text-transform: uppercase; }
-.badge.ssh { color: #7fd1ff; } .badge.telnet { color: #ffcf7f; } .badge.serial { color: #9be28f; }
+.badge.ssh { color: #7fd1ff; } .badge.telnet { color: #ffcf7f; } .badge.serial { color: #9be28f; } .badge.rdp { color: #d7a8ff; }
 .children { margin-left: 14px; border-left: 1px solid var(--line); padding-left: 4px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .tag { font-size: 10px; color: var(--muted); }
@@ -60,6 +60,10 @@ button.on { background: #5b2430; border-color: var(--danger); color: #ffb4ae; }
 .tab .badge, .tab .x { flex: none; }
 .tab.active { border-color: var(--accent); background: #1f2a44; }
 .tab.dead { opacity: .55; }
+.tab.drop-l { box-shadow: inset 3px 0 0 var(--accent); }
+.tab.drop-r { box-shadow: inset -3px 0 0 var(--accent); }
+.tab.drop-in { outline: 2px dashed var(--accent); }
+.pane-head { cursor: grab; }
 .tab.bc::after { content: '●'; color: var(--danger); font-size: 9px; }
 .tab .x { color: var(--muted); padding: 0 3px; }
 .tab .x:hover { color: var(--danger); }

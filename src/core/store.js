@@ -110,12 +110,12 @@ class Store {
   addHost(p = {}) {
     if (!p.name) throw new Error('Informe o nome do host');
     const protocol = p.protocol || 'ssh';
-    if (!['ssh', 'telnet', 'serial'].includes(protocol)) throw new Error('Protocolo inválido');
+    if (!['ssh', 'telnet', 'serial', 'rdp'].includes(protocol)) throw new Error('Protocolo inválido');
     if (protocol !== 'serial' && !p.address) throw new Error('Informe o endereço');
     const folderId = p.folderId ?? null;
     if (folderId) this._need(this._folder(folderId), 'Pasta');
     const h = {
-      id: uid(), folderId, protocol, address: '', port: protocol === 'ssh' ? 22 : protocol === 'telnet' ? 23 : null,
+      id: uid(), folderId, protocol, address: '', port: protocol === 'ssh' ? 22 : protocol === 'telnet' ? 23 : protocol === 'rdp' ? 3389 : null,
       identityId: null, jumpHostId: null, tags: [], notes: '', serial: null, startupCommands: [], forwards: [],
       favorite: false, telnetEnter: 'crlf', legacyAlgorithms: true, lastConnectedAt: null, createdAt: now(),
       ...pick(p, HOST_FIELDS),

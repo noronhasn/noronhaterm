@@ -381,7 +381,7 @@ async function hostDialog(existing, folderId) {
   const own = existing ? S.identities.find((x) => x.ownerHostId === existing.id) : null; // usuário/senha salvos só neste host
   const i = {
     name: h('input', { value: d.name || '', placeholder: 'ex.: web-01' }),
-    protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ...(MOBILE ? [] : [['serial', 'Serial']])], d.protocol),
+    protocol: sel([['ssh', 'SSH'], ['telnet', 'Telnet'], ...(MOBILE ? [] : [['serial', 'Serial'], ['rdp', 'RDP']])], d.protocol),
     folder: sel(folderOptions(), d.folderId || ''),
     address: h('input', { value: d.address || '', placeholder: 'IP ou hostname' }),
     port: h('input', { type: 'number', value: d.port ?? '' }),
@@ -417,8 +417,9 @@ async function hostDialog(existing, folderId) {
     },
   }, 'Detectar portas');
 
+  let jumpRow;
   const net = h('div', { class: 'list' },
-    h('div', { class: 'grid2' }, field('Porta', i.port), field('Jump host (ProxyJump)', i.jump)),
+    h('div', { class: 'grid2' }, field('Porta', i.port), jumpRow = field('Jump host (ProxyJump)', i.jump)),
     field('Identidade (usuário + senha). Vazio = pergunta ao conectar', i.identity));
   i.legacy = h('input', { type: 'checkbox', checked: d.legacyAlgorithms !== false });
   const sshOnly = h('div', { class: 'list' },
@@ -433,7 +434,7 @@ async function hostDialog(existing, folderId) {
 
   // protocolo escolhido por "chips" (o select fica só como valor interno)
   const chips = h('div', { class: 'chips' });
-  const PROTO = [['ssh', '🔐 SSH'], ['telnet', '📟 Telnet'], ...(MOBILE ? [] : [['serial', '🔌 Serial']])];
+  const PROTO = [['ssh', '🔐 SSH'], ['telnet', '📟 Telnet'], ...(MOBILE ? [] : [['serial', '🔌 Serial'], ['rdp', '🖥 RDP']])];
   const paintChips = () => chips.replaceChildren(...PROTO.map(([v, l]) =>
     h('button', { type: 'button', class: 'chip' + (i.protocol.value === v ? ' on' : ''), onclick: () => { i.protocol.value = v; sync(); } }, l)));
   const advanced = h('details', { class: 'adv' }, h('summary', {}, '⚙ Opções avançadas'),
@@ -451,8 +452,9 @@ async function hostDialog(existing, folderId) {
     net.hidden = p === 'serial';
     serial.hidden = p !== 'serial';
     sshOnly.hidden = p !== 'ssh';
+    jumpRow.hidden = p === 'rdp';
     telnetOnly.hidden = p !== 'telnet';
-    if (!existing || (existing && p !== existing.protocol)) i.port.value = p === 'telnet' ? 23 : p === 'ssh' ? 22 : '';
+    if (!existing || (existing && p !== existing.protocol)) i.port.value = p === 'telnet' ? 23 : p === 'ssh' ? 22 : p === 'rdp' ? 3389 : '';
     paintChips();
   };
   i.protocol.onchange = sync;
@@ -486,7 +488,7 @@ async function hostDialog(existing, folderId) {
         patch.port = null;
       } else {
         patch.address = i.address.value.trim();
-        patch.port = Number(i.port.value) || (p === 'telnet' ? 23 : 22);
+        patch.port = Number(i.port.value) || (p === 'telnet' ? 23 : p === 'rdp' ? 3389 : 22);
         patch.identityId = i.identity.value || null;
         patch.jumpHostId = i.jump.value || null;
         if (p === 'ssh') { patch.forwards = lines(i.forwards.value); patch.legacyAlgorithms = i.legacy.checked; }
@@ -926,6 +928,9 @@ function makePane({ name, protocol, hostId, adhoc }) {
   return pane;
 }
 
+let dragTab = null; // aba sendo arrastada
+let dragPane = null; // painel sendo arrastado
+
 function makeTab(pane) {
   const badge = h('span', { class: 'badge' });
   const label = h('span', { class: 'tab-label' });
@@ -935,6 +940,26 @@ function makeTab(pane) {
   const tab = { root: Layout.leaf(pane), el, tabEl, label, badge };
   pane.tab = tab;
   tabEl.onclick = () => activate(tab);
+  tabEl.draggable = true; // arrastar a aba muda a ordem; soltar um painel nela move o painel para essa aba
+  tabEl.addEventListener('dragstart', (e) => { dragTab = tab; e.dataTransfer.setData('application/x-netdeck-tab', '1'); e.dataTransfer.effectAllowed = 'move'; });
+  tabEl.addEventListener('dragend', () => { dragTab = null; dragPane = null; tabEl.classList.remove('drop-l', 'drop-r', 'drop-in'); });
+  tabEl.addEventListener('dragover', (e) => {
+    if (!dragTab && !dragPane) return;
+    e.preventDefault();
+    const r = tabEl.getBoundingClientRect();
+    tabEl.classList.toggle('drop-in', !!dragPane);
+    tabEl.classList.toggle('drop-l', !!dragTab && e.clientX < r.left + r.width / 2);
+    tabEl.classList.toggle('drop-r', !!dragTab && e.clientX >= r.left + r.width / 2);
+  });
+  tabEl.addEventListener('dragleave', () => tabEl.classList.remove('drop-l', 'drop-r', 'drop-in'));
+  tabEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const after = e.clientX >= tabEl.getBoundingClientRect().left + tabEl.offsetWidth / 2;
+    tabEl.classList.remove('drop-l', 'drop-r', 'drop-in');
+    if (dragTab) moveTab(dragTab, tab, after);
+    else if (dragPane) movePaneToTab(dragPane, tab);
+    dragTab = null; dragPane = null;
+  });
   x.onclick = (e) => { e.stopPropagation(); closeTab(tab); };
   tabEl.classList.toggle('bc', broadcast);
   tabList.push(tab);
@@ -964,6 +989,9 @@ function renderTab(tab) {
         h('span', { class: 'badge ' + p.protocol }, p.protocol),
         h('span', { class: 'grow' }, p.name),
         h('button', { title: 'Fechar este painel', onclick: (e) => { e.stopPropagation(); closePane(p); } }, '✕'));
+      head.draggable = true; // arrastar o título troca de lugar / divide / leva para outra aba
+      head.addEventListener('dragstart', (e) => { dragPane = p; e.dataTransfer.setData('application/x-netdeck-pane', '1'); e.dataTransfer.effectAllowed = 'move'; });
+      head.addEventListener('dragend', () => { dragPane = null; dropHint.hidden = true; });
       const wrap = h('div', { class: 'pane' + (p === activePane ? ' active' : '') }, head, p.el);
       p.wrap = wrap;
       return wrap;
@@ -1137,6 +1165,67 @@ function closeTab(tab) {
   setEmpty();
 }
 
+// ---- mover abas e painéis arrastando ----
+function moveTab(src, dst, after) {
+  if (src === dst) return;
+  tabList.splice(tabList.indexOf(src), 1);
+  let i = tabList.indexOf(dst);
+  if (after) i += 1;
+  tabList.splice(i, 0, src);
+  const bar = $('#tabs');
+  for (const t of tabList) bar.append(t.tabEl); // reordena no DOM
+}
+
+// tira o painel da árvore da aba de origem sem fechar a conexão; se era o único, a aba some
+function detachPane(pane) {
+  const tab = pane.tab;
+  if (Layout.leaves(tab.root).length === 1) {
+    tab.el.remove(); tab.tabEl.remove();
+    const i = tabList.indexOf(tab);
+    if (i >= 0) tabList.splice(i, 1);
+    if (activeTab === tab) { activeTab = null; activePane = null; }
+    return;
+  }
+  tab.root = Layout.remove(tab.root, pane);
+  if (activePane === pane) activePane = Layout.leaves(tab.root)[0];
+  renderTab(tab);
+}
+
+function movePaneInTab(pane, target, zone) { // mesma aba: centro troca de lugar, borda reposiciona
+  if (pane === target) return;
+  const tab = pane.tab;
+  if (zone === 'center') {
+    const a = Layout.findLeaf(tab.root, pane);
+    const b = Layout.findLeaf(tab.root, target);
+    a.pane = target; b.pane = pane;
+  } else {
+    if (Layout.leaves(tab.root).length < 2) return;
+    tab.root = Layout.remove(tab.root, pane);
+    tab.root = Layout.split(tab.root, target, zone, pane);
+  }
+  activePane = pane;
+  renderTab(tab);
+  activate(tab);
+  fitTab(tab);
+}
+
+function movePaneToTab(pane, dst) { // outra aba: entra dividindo à direita
+  if (pane.tab === dst) return;
+  const src = pane.tab;
+  const was = activeTab;
+  detachPane(pane);
+  const last = Layout.leaves(dst.root).slice(-1)[0];
+  dst.root = Layout.split(dst.root, last, 'right', pane);
+  pane.tab = dst;
+  activePane = pane;
+  renderTab(dst);
+  activate(dst);
+  fitTab(dst);
+  if (was === src && tabList.includes(src)) renderTab(src);
+  updateTabLabel(dst);
+  if (tabList.includes(src)) updateTabLabel(src);
+}
+
 function closeAllTabs() { [...tabList].forEach(closeTab); }
 
 let lastAct = 0;
@@ -1161,6 +1250,10 @@ api.on('session:close', (id, reason) => {
 function openHost(hostId) {
   const x = hostById(hostId);
   if (!x) return;
+  if (x.protocol === 'rdp') { // acesso remoto abre o cliente do sistema (mstsc / xfreerdp), fora do NetDeck
+    api.rdpOpen(hostId).then(() => toast('Abrindo acesso remoto…', true), (e) => toast(errMsg(e)));
+    return;
+  }
   newTab({ name: x.name, protocol: x.protocol, hostId });
 }
 
@@ -1295,6 +1388,15 @@ function showDropHint({ pane, zone, rect }) {
 }
 
 termsEl.addEventListener('dragover', (e) => {
+  if (dragPane) {
+    const info = dropInfo(e);
+    if (!info.pane || info.pane === dragPane) { dropHint.hidden = true; return; }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    showDropHint(info);
+    dropHint.textContent = info.zone === 'center' ? 'Trocar de lugar' : 'Mover para cá';
+    return;
+  }
   if (!e.dataTransfer || ![...e.dataTransfer.types].includes('text/plain')) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'copy';
@@ -1304,6 +1406,12 @@ termsEl.addEventListener('dragleave', (e) => { if (!termsEl.contains(e.relatedTa
 termsEl.addEventListener('drop', (e) => {
   e.preventDefault();
   dropHint.hidden = true;
+  if (dragPane) {
+    const info = dropInfo(e);
+    const p = dragPane; dragPane = null;
+    if (info.pane && info.pane !== p && info.pane.tab === p.tab) movePaneInTab(p, info.pane, info.zone);
+    return;
+  }
   let d;
   try { d = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
   if (!d || d.t !== 'host') return;

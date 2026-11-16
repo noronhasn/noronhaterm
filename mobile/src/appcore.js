@@ -194,6 +194,7 @@ function createApp(deps) {
 
     serialList: async () => [],
     sftpList: NOT_ON_ANDROID('SFTP'),
+    rdpOpen: NOT_ON_ANDROID('RDP'),
     sftpDownload: NOT_ON_ANDROID('SFTP'),
     sftpUpload: NOT_ON_ANDROID('SFTP'),
     importSshConfig: NOT_ON_ANDROID('Importar ~/.ssh/config'),

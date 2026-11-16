@@ -16,6 +16,7 @@ const { TelnetSession } = require('./telnet');
 const { SerialSession, listPorts } = require('./serial');
 const { BackupScheduler, restoreVault } = require('./backup');
 const { Remember } = require('./remember');
+const rdp = require('./rdp');
 const { ServerManager } = require('./servers');
 const { SessionLogger } = require('./sessionlog');
 
@@ -197,6 +198,7 @@ function registerIpc() {
 
   ipcMain.handle('keys:publicKey', (_e, id) => requireStore()._need(requireStore()._key(id), 'Chave').publicKey);
 
+  ipcMain.handle('rdp:open', (_e, hostId) => rdp.launch(requireStore().resolveHost(hostId)));
   ipcMain.handle('session:open', async (_e, { id, hostId, adhoc, cols, rows }) => {
     const st = requireStore();
     // o id vem da interface (a aba já existe e recebe os eventos desde o primeiro byte)
