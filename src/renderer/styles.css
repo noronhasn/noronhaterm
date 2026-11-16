@@ -169,3 +169,5 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 :root[data-ui="matrix"][data-rain="low"] .lock, :root[data-ui="matrix"][data-rain="mid"] .lock { background: transparent; }
 :root[data-ui="matrix"][data-rain="low"] .terms, :root[data-ui="matrix"][data-rain="mid"] .terms { background: transparent; }
 :root[data-ui="matrix"][data-rain="low"] .empty > *:not(.rain), :root[data-ui="matrix"][data-rain="mid"] .empty > *:not(.rain) { background: rgba(0, 0, 0, .82); }
+/* tela vazia no tema Matrix: só a chuva, sem textos */
+:root[data-ui="matrix"] .empty > *:not(.rain) { display: none; }

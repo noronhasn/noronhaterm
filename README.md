@@ -18,8 +18,8 @@ Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** g
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.13.deb`
-- AppImage: `chmod +x NetDeck-0.4.13.AppImage && ./NetDeck-0.4.13.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.13.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.14.deb`
+- AppImage: `chmod +x NetDeck-0.4.14.AppImage && ./NetDeck-0.4.14.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.14.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: o `.deb` instala uma regra do sistema (udev `uaccess`) que libera `/dev/ttyUSB*` e `/dev/ttyACM*` para quem está logado, sem precisar de grupo. Se a porta já estava ligada, desligue e ligue o cabo USB uma vez.
 
