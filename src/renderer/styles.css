@@ -47,7 +47,7 @@ button.on { background: #5b2430; border-color: var(--danger); color: #ffb4ae; }
 .row .acts button { padding: 0 5px; border: none; background: none; color: var(--muted); }
 .row .acts button:hover { color: var(--text); }
 .badge { font-size: 10px; padding: 1px 5px; border-radius: 8px; background: #2a3142; color: var(--muted); text-transform: uppercase; }
-.badge.ssh { color: #7fd1ff; } .badge.telnet { color: #ffcf7f; } .badge.serial { color: #9be28f; } .badge.rdp { color: #d7a8ff; } .badge.tool { color: #ff9ecb; } .badge.local { color: #8be9fd; }
+.badge.ssh { color: #7fd1ff; } .badge.telnet { color: #ffcf7f; } .badge.serial { color: #9be28f; } .badge.rdp { color: #d7a8ff; } .badge.tool { color: #ff9ecb; } .badge.local { color: #8be9fd; } .badge.mactelnet { color: #f1fa8c; }
 .children { margin-left: 14px; border-left: 1px solid var(--line); padding-left: 4px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .tag { font-size: 10px; color: var(--muted); }

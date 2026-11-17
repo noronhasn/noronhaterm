@@ -1736,7 +1736,7 @@ else {
         const row = h('div', {
           class: 'sftp-row', style: `display:grid;grid-template-columns:${COLS};gap:8px;cursor:pointer`,
           onclick: () => { body.querySelectorAll('.sel').forEach((x) => x.classList.remove('sel')); row.classList.add('sel'); sel = n; },
-          ondblclick: () => { sel = n; const b = row.closest('dialog').querySelector('button.primary'); if (b) b.click(); },
+          ondblclick: () => { sel = n; const want = (n.ip && n.ip !== '0.0.0.0') ? 'Conectar (SSH)' : 'Conectar por MAC'; const b = [...row.closest('dialog').querySelectorAll('button')].find((x) => x.textContent === want); if (b) b.click(); },
         }, h('span', {}, n.mac), h('span', {}, n.ip || '—'), h('span', {}, n.identity), h('span', {}, n.version), h('span', {}, n.board), h('span', {}, fmtUp(n.uptime)));
         body.append(row);
       });
@@ -1749,7 +1749,7 @@ else {
       draw();
     };
     find.addEventListener('input', () => { filter = find.value.trim(); draw(); });
-    const need = () => { if (!sel) { toast('Escolha um equipamento na lista'); return false; } if (!sel.ip || sel.ip === '0.0.0.0') { toast('Este equipamento não tem IP (só aparece por MAC).'); return false; } return true; };
+    const need = () => { if (!sel) { toast('Escolha um equipamento na lista'); return false; } if (!sel.ip || sel.ip === '0.0.0.0') { toast('Este equipamento não tem IP: use "Conectar por MAC".'); return false; } return true; };
     const connectBtn = { label: 'Conectar (SSH)', cls: 'primary', onClick: async (close) => {
       if (!need()) return;
       const inp = h('input', { placeholder: 'usuário', value: 'admin' });
@@ -1759,6 +1759,11 @@ else {
       close(true);
       newTab({ name: sel.identity || sel.ip, protocol: 'ssh', adhoc: { protocol: 'ssh', address: sel.ip, port: 22, username: u } });
     } };
+    const macBtn = { label: 'Conectar por MAC', onClick: async (close) => {
+      if (!sel) { toast('Escolha um equipamento na lista'); return; }
+      close(true);
+      newTab({ name: (sel.identity || sel.mac) + ' (MAC)', protocol: 'mactelnet', adhoc: { protocol: 'mactelnet', address: sel.mac } });
+    } };
     const saveBtn = { label: 'Salvar como host', onClick: async (close) => {
       if (!need()) return;
       close(true);
@@ -1767,8 +1772,8 @@ else {
     scan();
     await dialog('Vizinhos MikroTik', [
       status, field('Buscar', find), head, body,
-      h('div', { class: 'muted' }, 'Mostra os equipamentos MikroTik da mesma rede local (protocolo MNDP, como o Neighbors do WinBox). Equipamentos sem IP só aparecem aqui; para conectar neles use o WinBox.'),
-    ], [{ label: 'Atualizar', onClick: () => { scan(); } }, saveBtn, { label: 'Fechar', onClick: (c) => c(true) }, connectBtn]);
+      h('div', { class: 'muted' }, 'Mostra os equipamentos MikroTik da mesma rede local (protocolo MNDP, como o Neighbors do WinBox). Sem IP? Use "Conectar por MAC" (MAC-Telnet, experimental): pede usuário e senha do equipamento.'),
+    ], [{ label: 'Atualizar', onClick: () => { scan(); } }, saveBtn, { label: 'Fechar', onClick: (c) => c(true) }, macBtn, connectBtn]);
   };
   $('#btnNet').onclick = async () => {
     const ph = activePane && (activePane.hostId ? (hostById(activePane.hostId) || {}).address : (activePane.adhoc || {}).address);

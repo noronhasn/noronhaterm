@@ -134,6 +134,7 @@ function buildSession(resolved, cols, rows, id) {
   }
   if (resolved.protocol === 'tool') return new ToolSession(common);
   if (resolved.protocol === 'local') return new LocalShellSession({ ...common, shell: resolveShell(resolved.shell) || undefined });
+  if (resolved.protocol === 'mactelnet') return new (require('./mactelnet').MacTelnetSession)({ ...common, prompt: askRenderer });
   if (resolved.protocol === 'telnet') return new TelnetSession(common);
   if (resolved.protocol === 'serial') return new SerialSession(common);
   return new SshSession({ ...common, hostKeys, prompt: askRenderer });

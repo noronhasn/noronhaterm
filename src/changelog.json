@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.4.27",
+    "date": "2026-11-17",
+    "itens": [
+      "MAC-Telnet (experimental): em 📡 Vizinhos, \"Conectar por MAC\" abre o terminal de equipamentos MikroTik sem IP, direto pelo endereço MAC",
+      "Duplo clique em um vizinho sem IP conecta por MAC; com IP continua conectando por SSH"
+    ]
+  },
+  {
     "version": "0.4.26",
     "date": "2026-11-17",
     "itens": [
