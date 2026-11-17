@@ -2,13 +2,15 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 const inv = (ch, ...a) => ipcRenderer.invoke(ch, ...a);
-const EVENTS = new Set(['session:data', 'session:close', 'session:status', 'prompt:ask']);
+const EVENTS = new Set(['session:data', 'session:close', 'session:status', 'prompt:ask', 'update:progress', 'update:ready', 'update:error']);
 
 contextBridge.exposeInMainWorld('api', {
   version: () => inv('app:version'),
   localShells: () => inv('local:shells'),
   changelog: () => inv('app:changelog'),
   updateCheck: () => inv('update:check'),
+  updateDownload: () => inv('update:download'),
+  updateInstall: () => inv('update:install'),
   openExternal: (url) => inv('app:openExternal', url),
   users: () => inv('users:list'),
   createVault: (u, p) => inv('vault:create', u, p),

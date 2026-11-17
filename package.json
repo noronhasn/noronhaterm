@@ -1,6 +1,6 @@
 {
   "name": "netdeck",
-  "version": "0.4.21",
+  "version": "0.4.23",
   "description": "NetDeck — cliente SSH / Telnet / Serial com cofre de chaves e pastas de hosts",
   "main": "src/main/main.js",
   "license": "MIT",
@@ -16,7 +16,8 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "serialport": "^12.0.0",
-    "ssh2": "^1.16.0"
+    "ssh2": "^1.16.0",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -87,7 +88,22 @@
     "asarUnpack": [
       "node_modules/@lydell/**",
       "node_modules/node-pty/**"
-    ]
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "noronhasn",
+        "repo": "noronhaterm"
+      }
+    ],
+    "nsis": {
+      "artifactName": "NetDeck-Setup-${version}.${ext}",
+      "oneClick": true,
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "NetDeck-${version}-portable.${ext}"
+    }
   },
   "author": "NetDeck <dev@netdeck.local>",
   "homepage": "https://github.com/noronhasn/netdeck",

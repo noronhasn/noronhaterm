@@ -128,7 +128,8 @@ class SshSession {
     }
     const cfg = {
       host: normalizeAddress(hop.address), port: hop.port || 22, username: id.username, sock,
-      readyTimeout: 25000, keepaliveInterval: 15000, tryKeyboard: true,
+      readyTimeout: 25000, keepaliveInterval: 20000, keepaliveCountMax: 1000000, // MikroTik não responde ao keepalive do SSH: não derrubar por isso
+      tryKeyboard: true,
       hostVerifier: (key, cb) => this._verifyHostKey(hop, key).then(cb, () => cb(false)),
     };
     if (id.privateKey) { cfg.privateKey = id.privateKey; if (id.passphrase) cfg.passphrase = id.passphrase; }

@@ -40,5 +40,16 @@ test('novidades: texto da página de downloads vem do changelog', () => {
   const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'release-notes.js')]).toString();
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   assert.match(out, new RegExp('## NetDeck ' + pkg.version.replace(/\./g, '\\.')));
-  assert.match(out, /Terminal local/);
+  const log = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'changelog.json'), 'utf8'));
+  for (const item of log[0].itens) assert.ok(out.includes('- ' + item), 'cada item da versão atual aparece no texto');
+});
+
+test('canAutoUpdate: só instalador Windows e AppImage', () => {
+  const { canAutoUpdate } = require('../src/main/updater');
+  assert.equal(canAutoUpdate({ platform: 'win32', env: {}, packaged: true }), true);
+  assert.equal(canAutoUpdate({ platform: 'win32', env: { PORTABLE_EXECUTABLE_DIR: 'x' }, packaged: true }), false);
+  assert.equal(canAutoUpdate({ platform: 'linux', env: { APPIMAGE: '/a' }, packaged: true }), true);
+  assert.equal(canAutoUpdate({ platform: 'linux', env: {}, packaged: true }), false);
+  assert.equal(canAutoUpdate({ platform: 'win32', env: {}, packaged: false }), false);
+  assert.equal(canAutoUpdate({ platform: 'darwin', env: {}, packaged: true }), false);
 });

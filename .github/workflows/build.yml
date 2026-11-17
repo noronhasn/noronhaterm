@@ -22,6 +22,13 @@ jobs:
           name: netdeck-windows-instalador
           path: dist/*Setup*.exe
           compression-level: 0
+      # arquivos que o atualizador automático lê (latest.yml diz qual é a versão nova e o hash do instalador)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netdeck-windows-atualizador
+          path: |
+            dist/latest.yml
+            dist/*.blockmap
       - uses: actions/upload-artifact@v4
         with:
           name: netdeck-windows-portatil
@@ -47,6 +54,7 @@ jobs:
           path: |
             dist/*.AppImage
             dist/*.deb
+            dist/latest-linux.yml
 
   android:
     name: Android

@@ -1607,6 +1607,36 @@ async function showUpdate(u, cur) {
   ]);
 }
 
+// atualização automática: baixa sozinha em segundo plano e pergunta só na hora de reiniciar
+let autoUpdating = false;
+let autoUpdateInfo = null;
+function autoUpdate(u, cur) {
+  if (autoUpdating || !api.updateDownload) return;
+  autoUpdating = true; autoUpdateInfo = { u, cur };
+  const st = $('#status');
+  if (st) st.textContent = 'Baixando atualização ' + u.version + '…';
+  api.updateDownload().catch((e) => { autoUpdating = false; if (st) st.textContent = ''; toast('Não consegui baixar sozinho: ' + errMsg(e)); showUpdate(u, cur); });
+}
+if (api.on && api.updateDownload) {
+  api.on('update:progress', (p) => { const st = $('#status'); if (st && autoUpdating) st.textContent = 'Baixando atualização… ' + p + '%'; });
+  api.on('update:error', () => {
+    if (!autoUpdating || !autoUpdateInfo) return;
+    autoUpdating = false; const { u, cur } = autoUpdateInfo;
+    const st = $('#status'); if (st) st.textContent = '';
+    showUpdate(u, cur); // falhou: cai para o aviso com link de download
+  });
+  api.on('update:ready', async (v) => {
+    const st = $('#status'); if (st) st.textContent = 'Atualização ' + (v || '') + ' pronta.';
+    await dialog('Atualização pronta', [
+      h('div', {}, 'A versão ' + (v || 'nova') + ' foi baixada.'),
+      h('div', { class: 'muted', style: 'margin-top:6px' }, 'Reiniciar agora fecha as conexões abertas. Se preferir, ela é instalada sozinha quando você fechar o NetDeck.'),
+    ], [
+      { label: 'Depois (instala ao fechar)', onClick: (c) => c(true) },
+      { label: 'Reiniciar e atualizar', cls: 'primary', onClick: async (c) => { c(true); try { await api.updateInstall(); } catch (e) { toast(errMsg(e)); } } },
+    ]);
+  });
+}
+
 async function startupNotices() {
   if (MOBILE || !api.changelog) return;
   let cur = '';
@@ -1623,7 +1653,7 @@ async function startupNotices() {
     if (!api.updateCheck) return;
     const u = await api.updateCheck();
     let skip = null; try { skip = localStorage.getItem('skipVersion'); } catch { /* ignora */ }
-    if (u && u.available && u.version !== skip) await showUpdate(u, cur);
+    if (u && u.available && u.version !== skip) { if (u.auto) autoUpdate(u, cur); else await showUpdate(u, cur); }
   } catch { /* sem internet: silêncio */ }
 }
 
@@ -1637,7 +1667,7 @@ async function whatsNewDialog() { // pelo menu Opções
       status.textContent = 'Procurando…';
       try {
         const u = await api.updateCheck();
-        if (u && u.available) { status.textContent = 'Há uma versão nova: ' + u.version; await showUpdate(u, cur); }
+        if (u && u.available) { status.textContent = 'Há uma versão nova: ' + u.version; if (u.auto) autoUpdate(u, cur); else await showUpdate(u, cur); }
         else status.textContent = 'Você está na versão mais recente (' + cur + ').';
       } catch (e) { status.textContent = errMsg(e); }
     } },

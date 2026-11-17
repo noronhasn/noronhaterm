@@ -126,3 +126,6 @@ Botão **🌐 Rede** na barra de cima: escolha o destino e **Ping**, **Tracerout
 ## Atalhos e mouse
 - Selecionar com o mouse copia; botão direito cola (desligue em **Aa**). Ctrl+Shift+C / Ctrl+Shift+V continuam funcionando.
 - **Ctrl+L** terminal local · **Ctrl+1…5** abas 1 a 5 · **Ctrl+R** reconecta quando a sessão caiu (conectada, é a busca de histórico do shell) · **Ctrl+Shift+R** reconecta sempre · Ctrl+Tab próxima aba · Ctrl+Shift+D/E divide · Ctrl+Shift+W fecha o painel.
+
+## Atualização automática
+O instalador do Windows e o AppImage do Linux baixam versões novas sozinhos (GitHub Releases) e perguntam se quer reiniciar. A versão portátil e o .deb só avisam. O Release precisa conter `latest.yml` / `latest-linux.yml` (o workflow já envia).

@@ -23,4 +23,13 @@ async function checkUpdate({ current, repo, fetchFn = globalThis.fetch, timeoutM
   } catch { return { available: false }; }
 }
 
-module.exports = { isNewer, checkUpdate, parse };
+// A atualização automática só funciona no instalador do Windows e no AppImage do Linux.
+// Versão portátil e .deb continuam só avisando (com o link para baixar).
+function canAutoUpdate({ platform = process.platform, env = process.env, packaged = false } = {}) {
+  if (!packaged) return false;
+  if (platform === 'win32') return !env.PORTABLE_EXECUTABLE_DIR;
+  if (platform === 'linux') return !!env.APPIMAGE;
+  return false;
+}
+
+module.exports = { isNewer, checkUpdate, parse, canAutoUpdate };

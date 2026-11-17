@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.4.23",
+    "date": "2026-11-17",
+    "itens": [
+      "Corrigido: conexão com MikroTik fechava sozinha com \"Keepalive timeout\" (o RouterOS não responde ao keepalive do SSH; agora o NetDeck não derruba a sessão por isso)"
+    ]
+  },
+  {
+    "version": "0.4.22",
+    "date": "2026-11-17",
+    "itens": [
+      "Atualização automática: ao achar versão nova, o NetDeck baixa sozinho em segundo plano e pergunta se quer reiniciar (ou instala ao fechar)",
+      "Funciona no instalador do Windows e no AppImage do Linux; versão portátil e .deb continuam só avisando com o link",
+      "Se o download automático falhar, mostra o aviso com o link para baixar manualmente"
+    ]
+  },
+  {
     "version": "0.4.21",
     "date": "2026-11-17",
     "itens": [

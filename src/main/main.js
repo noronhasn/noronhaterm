@@ -19,7 +19,7 @@ const { Remember } = require('./remember');
 const rdp = require('./rdp');
 const { ToolSession } = require('./nettools');
 const { LocalShellSession, availableShells, resolveShell } = require('./localshell');
-const { checkUpdate } = require('./updater');
+const { checkUpdate, canAutoUpdate } = require('./updater');
 const { FtpClient } = require('./ftpclient');
 const { ServerManager } = require('./servers');
 const { SessionLogger } = require('./sessionlog');
@@ -147,7 +147,34 @@ function registerIpc() {
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('local:shells', () => availableShells().map(({ id, label }) => ({ id, label })));
   ipcMain.handle('app:changelog', () => require('../changelog.json'));
-  ipcMain.handle('update:check', () => checkUpdate({ current: app.getVersion(), repo: 'noronhasn/noronhaterm' }));
+  ipcMain.handle('update:check', async () => {
+    const r = await checkUpdate({ current: app.getVersion(), repo: 'noronhasn/noronhaterm' });
+    return { ...r, auto: r.available && canAutoUpdate({ packaged: app.isPackaged }) };
+  });
+  // atualização automática (instalador do Windows e AppImage): baixa em segundo plano; instala ao reiniciar ou ao fechar
+  let updaterReady = false;
+  const getUpdater = () => {
+    const { autoUpdater } = require('electron-updater');
+    if (!updaterReady) {
+      updaterReady = true;
+      autoUpdater.autoDownload = false;
+      autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.on('download-progress', (p) => send('update:progress', Math.round(p.percent || 0)));
+      autoUpdater.on('update-downloaded', (i) => send('update:ready', i && i.version));
+      autoUpdater.on('error', (e) => send('update:error', String((e && e.message) || e)));
+    }
+    return autoUpdater;
+  };
+  ipcMain.handle('update:download', async () => {
+    if (!canAutoUpdate({ packaged: app.isPackaged })) throw new Error('Atualização automática não disponível nesta instalação');
+    const u = getUpdater();
+    await u.checkForUpdates();
+    await u.downloadUpdate();
+  });
+  ipcMain.handle('update:install', () => {
+    if (store) { store.vault.lock(); store = null; }
+    getUpdater().quitAndInstall(false, true);
+  });
   ipcMain.handle('app:openExternal', (_e, url) => { // só abre páginas do próprio projeto
     if (typeof url !== 'string' || !url.startsWith('https://github.com/noronhasn/noronhaterm')) throw new Error('Endereço não permitido');
     return shell.openExternal(url);
