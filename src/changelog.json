@@ -1,0 +1,54 @@
+[
+  {
+    "version": "0.4.19",
+    "date": "2026-11-17",
+    "itens": [
+      "Terminal local: botão 💻 Local abre o shell do seu computador numa aba (PowerShell, bash ou zsh), como no Termius.",
+      "Ferramentas de rede novas em 🌐 Rede: DNS (nslookup), Whois e Nmap (portas, versões e descoberta de equipamentos).",
+      "Aviso de atualização: o NetDeck mostra o que mudou em cada versão e avisa quando há uma nova para baixar."
+    ]
+  },
+  {
+    "version": "0.4.18",
+    "date": "2026-11-17",
+    "itens": [
+      "Página pública de downloads (Releases) com instaladores do Windows, Linux e Android.",
+      "Build do macOS desligada por enquanto."
+    ]
+  },
+  {
+    "version": "0.4.17",
+    "date": "2026-11-17",
+    "itens": [
+      "Botão 🌐 Rede com Ping, Traceroute e MTR em abas.",
+      "Tema Matrix sem fundo cinza na chuva em toda a janela."
+    ]
+  },
+  {
+    "version": "0.4.14",
+    "date": "2026-11-16",
+    "itens": [
+      "Tema Matrix: interface verde com chuva de código, nas telas vazias ou em toda a janela, atrás do terminal.",
+      "Cliente FTP com janela de pastas (host com protocolo FTP).",
+      "SCP automático quando o equipamento não tem SFTP."
+    ]
+  },
+  {
+    "version": "0.4.9",
+    "date": "2026-11-16",
+    "itens": [
+      "RDP: host com protocolo RDP abre o cliente do sistema (mstsc ou xfreerdp).",
+      "Arrastar abas para trocar a ordem e arrastar painéis divididos.",
+      "Linux: porta serial liberada sem precisar de grupo dialout (instalador .deb)."
+    ]
+  },
+  {
+    "version": "0.4.7",
+    "date": "2026-11-14",
+    "itens": [
+      "Opção Lembrar neste computador: abre direto, sem pedir usuário e senha.",
+      "Bloqueio automático padrão de 1 hora.",
+      "Usuário e senha salvos direto no host, para só clicar e conectar."
+    ]
+  }
+]

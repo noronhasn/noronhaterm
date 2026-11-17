@@ -31,6 +31,7 @@ function setup() {
   const hostRow = { id: 'h1', name: 'sw1', protocol: 'ssh', folderId: null, address: '1.1.1.1', tags: [] };
   const api = {
     version: async () => '9.9.9',
+    changelog: async () => [{ version: '9.9.9', date: '2026-01-01', itens: ['teste'] }], updateCheck: async () => ({ available: false }), openExternal: async () => {},
     users: async () => ['u'],
     unlock: async () => ({ folders: [], hosts: [hostRow], identities: [], keys: [] }),
     open: async (o) => { log.open.push(o); return { id: o.id, snapshot: null }; },

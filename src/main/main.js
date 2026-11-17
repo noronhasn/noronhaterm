@@ -18,6 +18,8 @@ const { BackupScheduler, restoreVault } = require('./backup');
 const { Remember } = require('./remember');
 const rdp = require('./rdp');
 const { ToolSession } = require('./nettools');
+const { LocalShellSession } = require('./localshell');
+const { checkUpdate } = require('./updater');
 const { FtpClient } = require('./ftpclient');
 const { ServerManager } = require('./servers');
 const { SessionLogger } = require('./sessionlog');
@@ -122,11 +124,12 @@ function buildSession(resolved, cols, rows, id) {
     onClose: (reason) => { closeLog(id, reason); sessions.delete(id); send('session:close', id, reason); },
     onStatus: (msg) => { const l = logs.get(id); if (l) l.write('[' + msg + ']\r\n'); send('session:status', id, msg); },
   };
-  if (sessionLog && resolved.protocol !== 'tool') {
+  if (sessionLog && resolved.protocol !== 'tool' && resolved.protocol !== 'local') {
     const l = sessionLog.open({ name: resolved.name, address: resolved.address || (resolved.serial && resolved.serial.port), protocol: resolved.protocol });
     if (l) { logs.set(id, l); send('session:status', id, 'Gravando log em ' + l.file); }
   }
   if (resolved.protocol === 'tool') return new ToolSession(common);
+  if (resolved.protocol === 'local') return new LocalShellSession(common);
   if (resolved.protocol === 'telnet') return new TelnetSession(common);
   if (resolved.protocol === 'serial') return new SerialSession(common);
   return new SshSession({ ...common, hostKeys, prompt: askRenderer });
@@ -139,6 +142,12 @@ const getSsh = (id) => { const s = getSession(id); if (!(s instanceof SshSession
 
 function registerIpc() {
   ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('app:changelog', () => require('../changelog.json'));
+  ipcMain.handle('update:check', () => checkUpdate({ current: app.getVersion(), repo: 'noronhasn/noronhaterm' }));
+  ipcMain.handle('app:openExternal', (_e, url) => { // só abre páginas do próprio projeto
+    if (typeof url !== 'string' || !url.startsWith('https://github.com/noronhasn/noronhaterm')) throw new Error('Endereço não permitido');
+    return shell.openExternal(url);
+  });
   ipcMain.handle('users:list', () => {
     fs.mkdirSync(vaultDir(), { recursive: true });
     return fs.readdirSync(vaultDir()).filter((f) => f.endsWith('.vault')).map((f) => f.slice(0, -6)).sort();

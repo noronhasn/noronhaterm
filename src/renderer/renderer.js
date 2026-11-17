@@ -151,6 +151,7 @@ function setCreating(v) {
 
 $('#lockToggle').onclick = () => setCreating(!creating);
 
+let noticesShown = false;
 function enterApp(user) {
   if (currentUser && currentUser !== user) closeAllTabs();
   currentUser = user;
@@ -161,6 +162,7 @@ function enterApp(user) {
   renderTree();
   resetIdle();
   activeTab && activate(activeTab);
+  if (!noticesShown) { noticesShown = true; setTimeout(startupNotices, 900); }
 }
 async function paintRemember() { // mostra a caixa "Lembrar" só quando o sistema consegue guardar a senha com segurança
   const w = $('#lockRememberWrap');
@@ -604,6 +606,7 @@ $('#btnMore').onclick = () => {
       row('Log de sessão (gravar o terminal em arquivo)…', logDialog),
       row('Restaurar backup do cofre…', restoreDialog),
       row('Servidores TFTP / FTP…', serversDialog),
+      row('Novidades e atualizações…', whatsNewDialog),
     ]),
     row('Alterar senha…', async () => {
       const a = h('input', { type: 'password', autocomplete: 'new-password' });
@@ -1548,25 +1551,89 @@ termsEl.addEventListener('drop', (e) => {
   if (!info.pane || info.zone === 'center') newTab(host); else splitOpen(info.pane, info.zone, host);
 });
 
-// ---------------------------------------------------------------- ferramentas de rede (ping / traceroute / MTR)
-const NET_TOOLS = [['ping', 'Ping contínuo (Ctrl+C para parar)'], ['trace', 'Traceroute (caminho até o destino)'], ['mtr', 'MTR (perda e latência por salto)']];
-if (MOBILE) $('#btnNet').remove();
+// ---------------------------------------------------------------- novidades de cada versão e aviso de atualização
+const verParts = (v) => { const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(v || '')); return m ? [+m[1], +m[2], +m[3]] : null; };
+const verNewer = (a, b) => { const x = verParts(a); const y = verParts(b); if (!x || !y) return false; for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+const entriesNode = (list) => h('div', { class: 'list', style: 'max-height:340px;overflow:auto' },
+  ...list.map((e) => h('div', {}, h('b', {}, 'v' + e.version), ' ', h('span', { class: 'muted' }, e.date || ''),
+    h('ul', { style: 'margin:4px 0 10px 18px;padding:0' }, ...e.itens.map((i) => h('li', {}, i))))));
+
+async function showUpdate(u, cur) {
+  await dialog('Nova versão disponível: ' + u.version, [
+    h('div', { class: 'muted' }, `Você está na versão ${cur}.`),
+    h('pre', { style: 'white-space:pre-wrap;max-height:260px;overflow:auto;margin:8px 0' }, u.notes || 'Sem descrição.'),
+  ], [
+    { label: 'Ignorar esta versão', onClick: (c) => { try { localStorage.setItem('skipVersion', u.version); } catch { /* ignora */ } c(true); } },
+    { label: 'Depois', onClick: (c) => c(true) },
+    { label: 'Abrir downloads', cls: 'primary', onClick: async (c) => { try { await api.openExternal(u.url); } catch (e) { toast(errMsg(e)); } c(true); } },
+  ]);
+}
+
+async function startupNotices() {
+  if (MOBILE || !api.changelog) return;
+  let cur = '';
+  try {
+    cur = await api.version();
+    let last = null;
+    try { last = localStorage.getItem('lastSeenVersion'); localStorage.setItem('lastSeenVersion', cur); } catch { /* ignora */ }
+    if (last && last !== cur) { // primeira abertura depois de atualizar: mostra o que mudou
+      const news = (await api.changelog()).filter((e) => verNewer(e.version, last) && !verNewer(e.version, cur)).slice(0, 6);
+      if (news.length) await dialog('Novidades do NetDeck ' + cur, [entriesNode(news)], [{ label: 'Entendi', cls: 'primary', onClick: (c) => c(true) }]);
+    }
+  } catch { /* sem novidades, segue */ }
+  try {
+    if (!api.updateCheck) return;
+    const u = await api.updateCheck();
+    let skip = null; try { skip = localStorage.getItem('skipVersion'); } catch { /* ignora */ }
+    if (u && u.available && u.version !== skip) await showUpdate(u, cur);
+  } catch { /* sem internet: silêncio */ }
+}
+
+async function whatsNewDialog() { // pelo menu Opções
+  let cur = '';
+  try { cur = await api.version(); } catch { /* ignora */ }
+  const list = (await api.changelog()).slice(0, 12);
+  const status = h('div', { class: 'muted' }, 'Você está na versão ' + cur + '.');
+  await dialog('Novidades e atualizações', [status, entriesNode(list)], [
+    { label: 'Procurar atualização', onClick: async () => {
+      status.textContent = 'Procurando…';
+      try {
+        const u = await api.updateCheck();
+        if (u && u.available) { status.textContent = 'Há uma versão nova: ' + u.version; await showUpdate(u, cur); }
+        else status.textContent = 'Você está na versão mais recente (' + cur + ').';
+      } catch (e) { status.textContent = errMsg(e); }
+    } },
+    { label: 'Fechar', cls: 'primary', onClick: (c) => c(true) },
+  ]);
+}
+
+// ---------------------------------------------------------------- ferramentas de rede (ping / traceroute / MTR / nslookup / whois / nmap)
+const NET_TOOLS = [
+  ['ping', 'Ping contínuo (Ctrl+C para parar)'], ['trace', 'Traceroute (caminho até o destino)'], ['mtr', 'MTR (perda e latência por salto)'],
+  ['dns', 'DNS (nslookup)'], ['whois', 'Whois (dono do domínio ou IP)'],
+  ['nmap', 'Nmap: portas abertas (rápido)'], ['nmapsv', 'Nmap: portas e versões dos serviços'], ['nmapsn', 'Nmap: descobrir equipamentos ativos (ex.: 192.168.0.0/24)'],
+];
+const NET_LABEL = { ping: 'Ping', trace: 'Trace', mtr: 'MTR', dns: 'DNS', whois: 'Whois', nmap: 'Nmap', nmapsv: 'Nmap -sV', nmapsn: 'Nmap rede' };
+const NET_HINT = { whois: 'ex.: exemplo.com.br ou 200.1.2.3', dns: 'ex.: exemplo.com.br', nmapsn: 'ex.: 192.168.0.0/24', nmap: 'IP ou nome', nmapsv: 'IP ou nome' };
+if (MOBILE) { $('#btnNet').remove(); $('#btnLocal').remove(); }
 else {
+  // terminal local: o shell do próprio computador numa aba (como o "Local Terminal" do Termius)
+  $('#btnLocal').onclick = () => newTab({ name: 'Terminal local', protocol: 'local', adhoc: { protocol: 'local' } });
   $('#btnNet').onclick = async () => {
     const ph = activePane && (activePane.hostId ? (hostById(activePane.hostId) || {}).address : (activePane.adhoc || {}).address);
     const target = h('input', { value: ph || '', placeholder: 'IP ou nome, ex.: 8.8.8.8', autocomplete: 'off' });
     const tool = sel(NET_TOOLS, 'ping');
+    tool.addEventListener('change', () => { target.placeholder = NET_HINT[tool.value] || 'IP ou nome, ex.: 8.8.8.8'; });
     const run = async (close) => {
       const t = target.value.trim();
-      if (!t) throw new Error('Informe o IP ou nome do destino');
-      const label = { ping: 'Ping', trace: 'Trace', mtr: 'MTR' }[tool.value];
+      if (!t) throw new Error('Informe o destino');
       close(true);
-      newTab({ name: `${label} ${t}`, protocol: 'tool', adhoc: { protocol: 'tool', tool: tool.value, address: t } });
+      newTab({ name: `${NET_LABEL[tool.value]} ${t}`, protocol: 'tool', adhoc: { protocol: 'tool', tool: tool.value, address: t } });
     };
     target.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const b = target.closest('dialog').querySelector('button.primary'); if (b) b.click(); } });
     await dialog('Ferramentas de rede', [
       field('Destino', target), field('Ferramenta', tool),
-      h('div', { class: 'muted' }, 'Usa os programas do próprio computador e abre o resultado em uma nova aba. Se faltar algum (traceroute, mtr), a aba mostra o que instalar. Ctrl+C na aba para parar; ↻ roda de novo.'),
+      h('div', { class: 'muted' }, 'Usa os programas do próprio computador (o Whois já vem no NetDeck) e abre o resultado em uma nova aba. Se faltar algum (traceroute, mtr, nmap), a aba mostra o que instalar. Use o Nmap só em redes suas ou com autorização. Ctrl+C na aba para parar; ↻ roda de novo.'),
     ], [cancelBtn, { label: 'Executar', cls: 'primary', onClick: run }]);
   };
 }

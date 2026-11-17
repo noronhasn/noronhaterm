@@ -1,6 +1,6 @@
 {
   "name": "netdeck",
-  "version": "0.4.18",
+  "version": "0.4.19",
   "description": "NetDeck — cliente SSH / Telnet / Serial com cofre de chaves e pastas de hosts",
   "main": "src/main/main.js",
   "license": "MIT",
@@ -83,8 +83,15 @@
       "identity": null,
       "hardenedRuntime": false,
       "artifactName": "NetDeck-${version}-mac-${arch}.${ext}"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/@lydell/**",
+      "node_modules/node-pty/**"
+    ]
   },
   "author": "NetDeck <dev@netdeck.local>",
-  "homepage": "https://github.com/noronhasn/netdeck"
+  "homepage": "https://github.com/noronhasn/netdeck",
+  "optionalDependencies": {
+    "@lydell/node-pty": "*"
+  }
 }

@@ -99,12 +99,15 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: arquivos
           merge-multiple: true
       - run: ls -la arquivos
+      # texto da página de downloads = novidades desta versão (src/changelog.json)
+      - run: node scripts/release-notes.js > RELEASE_NOTES.md
       - uses: softprops/action-gh-release@v2
         with:
           files: arquivos/*
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
