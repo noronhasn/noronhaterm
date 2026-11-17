@@ -831,6 +831,7 @@ function applyUi(id) {
   try { localStorage.setItem('uiTheme', v); } catch { /* ignora */ }
   applyRain(rainMode());
   if (v === 'matrix') startRain();
+  try { if (api.setTitleBar) api.setTitleBar(v); } catch { /* ignora */ }
 }
 let rainOn = false;
 function startRain() {
@@ -868,6 +869,11 @@ function startRain() {
   requestAnimationFrame(frame);
 }
 applyUi(uiTheme());
+if (api.chrome) api.chrome().then((c) => { // Windows: barra de título própria, com a cor do tema
+  if (!c || !c.custom || !document.documentElement) return;
+  document.documentElement.classList.add('custombar'); const tb = $('#titlebar'); if (tb) tb.hidden = false;
+  if (api.setTitleBar) api.setTitleBar(uiTheme());
+}).catch(() => {});
 
 // Mouse no terminal: selecionar copia e o botão direito cola. Ligado por padrão; "Aa" desliga.
 const mouseCopy = () => { try { return localStorage.getItem('mouseCopy') !== '0'; } catch { return true; } };

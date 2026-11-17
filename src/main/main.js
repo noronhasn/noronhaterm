@@ -46,7 +46,8 @@ function createWindow() {
   if (process.platform === 'darwin') Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]));
   else Menu.setApplicationMenu(null);
   win = new BrowserWindow({
-    width: 1280, height: 800, minWidth: 900, minHeight: 560, backgroundColor: '#14161b', title: 'NetDeck', icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
+    width: 1280, height: 800, minWidth: 900, minHeight: 560, backgroundColor: '#14161b', title: 'NetDeck',
+    ...(process.platform === 'win32' ? { titleBarStyle: 'hidden', titleBarOverlay: { color: '#14161b', symbolColor: '#d7dae0', height: 32 } } : {}), icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.setMenuBarVisibility(false);
@@ -145,6 +146,13 @@ const getSsh = (id) => { const s = getSession(id); if (!(s instanceof SshSession
 
 function registerIpc() {
   ipcMain.handle('app:version', () => app.getVersion());
+  // barra de título colorida (Windows): a cor acompanha o tema
+  ipcMain.handle('app:chrome', () => ({ custom: process.platform === 'win32' }));
+  ipcMain.handle('app:titleBar', (_e, ui) => {
+    if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
+    const c = ui === 'matrix' ? { color: '#000000', symbolColor: '#1fdc50' } : { color: '#14161b', symbolColor: '#d7dae0' };
+    try { win.setTitleBarOverlay({ ...c, height: 32 }); } catch { /* sem suporte */ }
+  });
   ipcMain.handle('local:shells', () => availableShells().map(({ id, label }) => ({ id, label })));
   ipcMain.handle('app:changelog', () => require('../changelog.json'));
   ipcMain.handle('update:check', async () => {

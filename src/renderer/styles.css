@@ -176,3 +176,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 :root[data-ui="matrix"][data-rain="low"] .sidebar, :root[data-ui="matrix"][data-rain="mid"] .sidebar,
 :root[data-ui="matrix"][data-rain="low"] .topbar, :root[data-ui="matrix"][data-rain="mid"] .topbar,
 :root[data-ui="matrix"][data-rain="low"] .status, :root[data-ui="matrix"][data-rain="mid"] .status { background: transparent; text-shadow: 0 0 3px #000, 0 0 6px #000; }
+
+/* barra de título própria (Windows): arrastável, com as cores do tema */
+.titlebar { position: fixed; top: 0; left: 0; right: 140px; height: 32px; display: flex; align-items: center; padding-left: 12px; z-index: 1000; -webkit-app-region: drag; font-weight: 600; color: var(--text); user-select: none; }
+:root.custombar body { padding-top: 32px; background: var(--bg); }
+:root.custombar { --tb: #14161b; }
+:root.custombar .app { height: calc(100vh - 32px); }
+:root.custombar .lock { top: 32px; }
+:root.custombar::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--tb); z-index: 999; }
+:root[data-ui="matrix"].custombar { --tb: #000; }
+:root[data-ui="matrix"] .titlebar { color: #1fdc50; text-shadow: 0 0 6px #1fdc50; font-family: 'Cascadia Mono', Consolas, monospace; }
