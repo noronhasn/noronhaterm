@@ -1,6 +1,6 @@
 {
   "name": "netdeck",
-  "version": "0.4.24",
+  "version": "0.4.25",
   "description": "NetDeck — cliente SSH / Telnet / Serial com cofre de chaves e pastas de hosts",
   "main": "src/main/main.js",
   "license": "MIT",
