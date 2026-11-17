@@ -146,6 +146,7 @@ const getSsh = (id) => { const s = getSession(id); if (!(s instanceof SshSession
 
 function registerIpc() {
   ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('neighbors:scan', () => require('./mndp').discover());
   // barra de título colorida (Windows): a cor acompanha o tema
   ipcMain.handle('app:chrome', () => ({ custom: process.platform === 'win32' }));
   ipcMain.handle('app:titleBar', (_e, ui) => {

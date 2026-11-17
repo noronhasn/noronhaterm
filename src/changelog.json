@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.4.26",
+    "date": "2026-11-17",
+    "itens": [
+      "Novo botão 📡 Vizinhos: lista os MikroTik da sua rede (MAC, IP, nome, versão, placa, uptime), como o Neighbors do WinBox",
+      "Duplo clique conecta por SSH; \"Salvar como host\" já preenche nome, IP e versão"
+    ]
+  },
+  {
     "version": "0.4.25",
     "date": "2026-11-17",
     "itens": [

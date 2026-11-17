@@ -6,6 +6,7 @@ const EVENTS = new Set(['session:data', 'session:close', 'session:status', 'prom
 
 contextBridge.exposeInMainWorld('api', {
   version: () => inv('app:version'),
+  neighborsScan: () => inv('neighbors:scan'),
   chrome: () => inv('app:chrome'),
   setTitleBar: (ui) => inv('app:titleBar', ui),
   localShells: () => inv('local:shells'),

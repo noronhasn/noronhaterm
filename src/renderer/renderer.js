@@ -372,10 +372,10 @@ async function connectFolder(id) {
 }
 
 // ---------------------------------------------------------------- diálogos: host e pasta
-async function hostDialog(existing, folderId) {
+async function hostDialog(existing, folderId, prefill) {
   const d = existing || {
     protocol: 'ssh', port: 22, tags: [], folderId: folderId || null, startupCommands: [], forwards: [], telnetEnter: 'crlf',
-    serial: { port: '', baud: 9600, dataBits: 8, parity: 'none', stopBits: 1, flow: 'none' },
+    serial: { port: '', baud: 9600, dataBits: 8, parity: 'none', stopBits: 1, flow: 'none' }, ...(prefill || {}),
   };
   const isLinux = /Linux/i.test(navigator.userAgent || '') && !/Android/i.test(navigator.userAgent || '');
   const DEFAULT_PORT = isLinux ? '/dev/ttyUSB0' : ''; // no Linux o adaptador USB-serial costuma ser /dev/ttyUSB0
@@ -1689,7 +1689,7 @@ const NET_TOOLS = [
 ];
 const NET_LABEL = { ping: 'Ping', trace: 'Trace', mtr: 'MTR', dns: 'DNS', whois: 'Whois', nmap: 'Nmap', nmapsv: 'Nmap -sV', nmapsn: 'Nmap rede' };
 const NET_HINT = { whois: 'ex.: exemplo.com.br ou 200.1.2.3', dns: 'ex.: exemplo.com.br', nmapsn: 'ex.: 192.168.0.0/24', nmap: 'IP ou nome', nmapsv: 'IP ou nome' };
-if (MOBILE) { $('#btnNet').remove(); $('#btnLocal').remove(); $('#btnLocalPick').remove(); }
+if (MOBILE) { $('#btnNeigh').remove(); $('#btnNet').remove(); $('#btnLocal').remove(); $('#btnLocalPick').remove(); }
 else {
   // terminal local: o shell do próprio computador numa aba (como o "Local Terminal" do Termius)
   const localKey = 'localShell';
@@ -1714,6 +1714,61 @@ else {
       },
     }, x.label)));
     await dialog('Escolher terminal local', [box, h('div', { class: 'muted' }, 'O que você escolher também passa a ser o do botão 💻 Local.')], [{ label: 'Fechar', onClick: (c) => c(true) }]);
+  };
+  // vizinhos MikroTik (MNDP): lista como a aba Neighbors do WinBox
+  const fmtUp = (s) => { const d = Math.floor(s / 86400); const hh = Math.floor((s % 86400) / 3600); const m = Math.floor((s % 3600) / 60); return (d ? d + 'd ' : '') + String(hh).padStart(2, '0') + ':' + String(m).padStart(2, '0'); };
+  $('#btnNeigh').onclick = async () => {
+    let rows = []; let filter = '';
+    const status = h('div', { class: 'muted' }, 'Procurando…');
+    const find = h('input', { placeholder: 'Buscar (nome, IP, MAC, versão…)' });
+    const body = h('div', { class: 'list', style: 'min-height:240px;max-height:360px;overflow:auto' });
+    const COLS = '1.1fr 1fr 1.4fr 1fr 1fr 70px';
+    const head = h('div', { class: 'muted', style: `display:grid;grid-template-columns:${COLS};gap:8px;padding:2px 6px` },
+      ...['MAC', 'IP', 'Nome', 'Versão', 'Placa', 'Uptime'].map((t) => h('span', {}, t)));
+    let sel = null;
+    const draw = () => {
+      body.textContent = '';
+      sel = null;
+      const f = filter.toLowerCase();
+      const list = rows.filter((n) => !f || [n.mac, n.ip, n.identity, n.version, n.board].join(' ').toLowerCase().includes(f));
+      if (!list.length) body.append(h('div', { class: 'muted', style: 'padding:8px' }, rows.length ? 'Nada encontrado.' : 'Nenhum equipamento respondeu. Só aparecem os que estão na mesma rede local do seu computador.'));
+      list.forEach((n) => {
+        const row = h('div', {
+          class: 'sftp-row', style: `display:grid;grid-template-columns:${COLS};gap:8px;cursor:pointer`,
+          onclick: () => { body.querySelectorAll('.sel').forEach((x) => x.classList.remove('sel')); row.classList.add('sel'); sel = n; },
+          ondblclick: () => { sel = n; const b = row.closest('dialog').querySelector('button.primary'); if (b) b.click(); },
+        }, h('span', {}, n.mac), h('span', {}, n.ip || '—'), h('span', {}, n.identity), h('span', {}, n.version), h('span', {}, n.board), h('span', {}, fmtUp(n.uptime)));
+        body.append(row);
+      });
+    };
+    const scan = async () => {
+      status.textContent = 'Procurando…';
+      try { rows = await api.neighborsScan(); status.textContent = rows.length + ' equipamento(s) encontrado(s).'; }
+      catch (e) { rows = []; status.textContent = errMsg(e); }
+      rows.sort((a, b) => (a.identity || '').localeCompare(b.identity || ''));
+      draw();
+    };
+    find.addEventListener('input', () => { filter = find.value.trim(); draw(); });
+    const need = () => { if (!sel) { toast('Escolha um equipamento na lista'); return false; } if (!sel.ip || sel.ip === '0.0.0.0') { toast('Este equipamento não tem IP (só aparece por MAC).'); return false; } return true; };
+    const connectBtn = { label: 'Conectar (SSH)', cls: 'primary', onClick: async (close) => {
+      if (!need()) return;
+      const inp = h('input', { placeholder: 'usuário', value: 'admin' });
+      const u = await dialog('Usuário SSH', field(`Usuário para ${sel.ip}`, inp), [
+        { label: 'Cancelar', onClick: (c) => c(null) }, { label: 'OK', cls: 'primary', onClick: (c) => c(inp.value.trim()) }]);
+      if (!u) return;
+      close(true);
+      newTab({ name: sel.identity || sel.ip, protocol: 'ssh', adhoc: { protocol: 'ssh', address: sel.ip, port: 22, username: u } });
+    } };
+    const saveBtn = { label: 'Salvar como host', onClick: async (close) => {
+      if (!need()) return;
+      close(true);
+      hostDialog(null, null, { name: sel.identity || sel.ip, address: sel.ip, notes: [sel.board, sel.version].filter(Boolean).join(' · ') });
+    } };
+    scan();
+    await dialog('Vizinhos MikroTik', [
+      status, field('Buscar', find), head, body,
+      h('div', { class: 'muted' }, 'Mostra os equipamentos MikroTik da mesma rede local (protocolo MNDP, como o Neighbors do WinBox). Equipamentos sem IP só aparecem aqui; para conectar neles use o WinBox.'),
+    ], [{ label: 'Atualizar', onClick: () => { scan(); } }, saveBtn, { label: 'Fechar', onClick: (c) => c(true) }, connectBtn]);
   };
   $('#btnNet').onclick = async () => {
     const ph = activePane && (activePane.hostId ? (hostById(activePane.hostId) || {}).address : (activePane.adhoc || {}).address);
