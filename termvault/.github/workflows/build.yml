@@ -1,0 +1,121 @@
+name: Build
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - run: npx electron-builder --win --publish never
+      # instalador e versão portátil em downloads separados (cada um com ~80 MB, em vez de um zip de 160 MB)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netdeck-windows-instalador
+          path: dist/*Setup*.exe
+          compression-level: 0
+      # arquivos que o atualizador automático lê (latest.yml diz qual é a versão nova e o hash do instalador)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netdeck-windows-atualizador
+          path: |
+            dist/latest.yml
+            dist/*.blockmap
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netdeck-windows-portatil
+          path: |
+            dist/NetDeck*.exe
+            !dist/*Setup*.exe
+          compression-level: 0
+
+  linux:
+    name: Linux
+    runs-on: ubuntu-22.04 # glibc antiga: o app roda no Ubuntu 22.04 e em qualquer versão mais nova
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - run: npx electron-builder --linux --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netdeck-linux
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/latest-linux.yml
+
+  android:
+    name: Android
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Dependências da raiz (xterm da interface)
+        run: npm install --ignore-scripts
+      - name: Testes do app Android (cofre, ponte, Telnet)
+        run: node --test test/mobile.test.js
+      - name: Dependências do app Android
+        working-directory: mobile
+        run: npm install
+      - name: Montar a interface e testar o pacote final
+        working-directory: mobile
+        run: |
+          node scripts/build-web.js
+          node scripts/smoke-bundle.js
+      - name: Criar o projeto Android
+        working-directory: mobile
+        run: |
+          npx cap add android
+          node scripts/patch-android.js
+          npx cap sync android
+      - name: Compilar o APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Nomear o APK
+        run: |
+          VER=$(node -p "require('./mobile/package.json').version")
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk "NetDeck-Android-$VER.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netdeck-android
+          path: NetDeck-Android-*.apk
+
+  # Ao criar uma tag (ex.: v0.4.18), junta tudo numa página pública de downloads (Releases)
+  release:
+    name: Publicar downloads
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [windows, linux, android]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: arquivos
+          merge-multiple: true
+      - run: ls -la arquivos
+      # texto da página de downloads = novidades desta versão (src/changelog.json)
+      - run: node scripts/release-notes.js > RELEASE_NOTES.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: arquivos/*
+          body_path: RELEASE_NOTES.md
