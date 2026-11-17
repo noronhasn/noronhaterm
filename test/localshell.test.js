@@ -48,3 +48,26 @@ test('terminal local: sem pty no Linux usa script e roda comandos de verdade', {
   assert.match(out.join(''), /teste-42/);
   assert.match(String(closed), /encerrado/);
 });
+
+const { listShells } = require('../src/main/localshell');
+
+test('terminal local: no Windows lista PowerShell, CMD, WSL (e cada distribuição) e Git Bash', () => {
+  const wslOut = 'Ubuntu-22.04\r\nDebian\r\ndocker-desktop\r\ndocker-desktop-data\r\n'.split('').join('\0'); // o wsl responde em UTF-16
+  const l = listShells({
+    platform: 'win32', env: { COMSPEC: 'C:\\Windows\\System32\\cmd.exe' },
+    have: (c) => c === 'wsl.exe' || c === 'pwsh.exe',
+    exists: (f) => f === 'C:\\Program Files\\Git\\bin\\bash.exe',
+    run: () => wslOut,
+  });
+  assert.deepEqual(l.map((x) => x.id), ['powershell', 'pwsh', 'cmd', 'wsl', 'wsl:Ubuntu-22.04', 'wsl:Debian', 'gitbash']);
+  assert.deepEqual(l.find((x) => x.id === 'wsl:Debian').args, ['-d', 'Debian', '--cd', '~']);
+  assert.equal(l.find((x) => x.id === 'wsl').cmd, 'wsl.exe');
+});
+
+test('terminal local: sem WSL instalado não aparece; no Linux lista só os shells que existem', () => {
+  const l = listShells({ platform: 'win32', env: {}, have: () => false, exists: () => false });
+  assert.deepEqual(l.map((x) => x.id), ['powershell', 'cmd']);
+  const u = listShells({ platform: 'linux', env: { SHELL: '/usr/bin/zsh' }, exists: (f) => ['/usr/bin/zsh', '/bin/bash', '/bin/sh'].includes(f) });
+  assert.deepEqual(u.map((x) => x.id), ['/usr/bin/zsh', '/bin/bash', '/bin/sh']);
+  assert.equal(listShells({ platform: 'linux', env: { SHELL: '/bin/bash; rm -rf /' }, exists: () => true }).some((x) => /rm/.test(x.cmd)), false);
+});

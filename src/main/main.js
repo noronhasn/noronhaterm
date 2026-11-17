@@ -18,7 +18,7 @@ const { BackupScheduler, restoreVault } = require('./backup');
 const { Remember } = require('./remember');
 const rdp = require('./rdp');
 const { ToolSession } = require('./nettools');
-const { LocalShellSession } = require('./localshell');
+const { LocalShellSession, availableShells, resolveShell } = require('./localshell');
 const { checkUpdate } = require('./updater');
 const { FtpClient } = require('./ftpclient');
 const { ServerManager } = require('./servers');
@@ -111,7 +111,7 @@ function adhocHost(a) {
   const protocol = a.protocol || 'ssh';
   return {
     id: null, name: a.address || a.serial?.port || 'Conexão rápida', protocol, address: a.address, port: Number(a.port) || (protocol === 'telnet' ? 23 : 22),
-    tool: a.tool || null, serial: a.serial || null, jumpChain: [], startupCommands: [], forwards: [], telnetEnter: 'crlf',
+    tool: a.tool || null, shell: a.shell || null, serial: a.serial || null, jumpChain: [], startupCommands: [], forwards: [], telnetEnter: 'crlf',
     // sem senha informada, a conexão rápida pergunta a senha (não é salva em lugar nenhum)
     identity: a.username ? { username: a.username, password: a.password || '', privateKey: '', passphrase: '', useAgent: false } : null,
   };
@@ -129,7 +129,7 @@ function buildSession(resolved, cols, rows, id) {
     if (l) { logs.set(id, l); send('session:status', id, 'Gravando log em ' + l.file); }
   }
   if (resolved.protocol === 'tool') return new ToolSession(common);
-  if (resolved.protocol === 'local') return new LocalShellSession(common);
+  if (resolved.protocol === 'local') return new LocalShellSession({ ...common, shell: resolveShell(resolved.shell) || undefined });
   if (resolved.protocol === 'telnet') return new TelnetSession(common);
   if (resolved.protocol === 'serial') return new SerialSession(common);
   return new SshSession({ ...common, hostKeys, prompt: askRenderer });
@@ -142,6 +142,7 @@ const getSsh = (id) => { const s = getSession(id); if (!(s instanceof SshSession
 
 function registerIpc() {
   ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('local:shells', () => availableShells().map(({ id, label }) => ({ id, label })));
   ipcMain.handle('app:changelog', () => require('../changelog.json'));
   ipcMain.handle('update:check', () => checkUpdate({ current: app.getVersion(), repo: 'noronhasn/noronhaterm' }));
   ipcMain.handle('app:openExternal', (_e, url) => { // só abre páginas do próprio projeto

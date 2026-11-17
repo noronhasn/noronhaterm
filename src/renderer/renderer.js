@@ -1615,10 +1615,32 @@ const NET_TOOLS = [
 ];
 const NET_LABEL = { ping: 'Ping', trace: 'Trace', mtr: 'MTR', dns: 'DNS', whois: 'Whois', nmap: 'Nmap', nmapsv: 'Nmap -sV', nmapsn: 'Nmap rede' };
 const NET_HINT = { whois: 'ex.: exemplo.com.br ou 200.1.2.3', dns: 'ex.: exemplo.com.br', nmapsn: 'ex.: 192.168.0.0/24', nmap: 'IP ou nome', nmapsv: 'IP ou nome' };
-if (MOBILE) { $('#btnNet').remove(); $('#btnLocal').remove(); }
+if (MOBILE) { $('#btnNet').remove(); $('#btnLocal').remove(); $('#btnLocalPick').remove(); }
 else {
   // terminal local: o shell do próprio computador numa aba (como o "Local Terminal" do Termius)
-  $('#btnLocal').onclick = () => newTab({ name: 'Terminal local', protocol: 'local', adhoc: { protocol: 'local' } });
+  const localKey = 'localShell';
+  const openLocal = (id, label) => newTab({ name: label || 'Terminal local', protocol: 'local', adhoc: { protocol: 'local', shell: id || null } });
+  $('#btnLocal').onclick = () => { // abre o terminal escolhido por último (ou o padrão do sistema)
+    let id = null; let label = null;
+    try { id = localStorage.getItem(localKey); label = localStorage.getItem(localKey + 'Label'); } catch { /* ignora */ }
+    openLocal(id, label);
+  };
+  $('#btnLocalPick').onclick = async () => {
+    let list = [];
+    try { list = await api.localShells(); } catch (e) { return toast(errMsg(e)); }
+    if (!list.length) return toast('Nenhum terminal encontrado');
+    let cur = null; try { cur = localStorage.getItem(localKey); } catch { /* ignora */ }
+    const box = h('div', { class: 'list' }, ...list.map((x) => h('button', {
+      style: 'text-align:left', class: x.id === cur ? 'primary' : '',
+      onclick: () => {
+        try { localStorage.setItem(localKey, x.id); localStorage.setItem(localKey + 'Label', x.label); } catch { /* ignora */ }
+        const fechar = [...box.closest('dialog').querySelectorAll('button')].find((b) => b.textContent === 'Fechar' && !box.contains(b));
+        if (fechar) fechar.click();
+        openLocal(x.id, x.label);
+      },
+    }, x.label)));
+    await dialog('Escolher terminal local', [box, h('div', { class: 'muted' }, 'O que você escolher também passa a ser o do botão 💻 Local.')], [{ label: 'Fechar', onClick: (c) => c(true) }]);
+  };
   $('#btnNet').onclick = async () => {
     const ph = activePane && (activePane.hostId ? (hostById(activePane.hostId) || {}).address : (activePane.adhoc || {}).address);
     const target = h('input', { value: ph || '', placeholder: 'IP ou nome, ex.: 8.8.8.8', autocomplete: 'off' });

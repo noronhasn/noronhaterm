@@ -21,6 +21,43 @@ function pickShell(platform = process.platform, env = process.env, have = () => 
   return { cmd: sh, args: [] };
 }
 
+// Lista os terminais disponíveis neste computador. Cada item: { id, label, cmd, args }.
+// `have(cmd)` = o programa existe no PATH; `exists(file)` = o arquivo existe; `run(cmd, args)` = saída do comando (ou '').
+function listShells({ platform = process.platform, env = process.env, have = () => false, exists = () => false, run = () => '' } = {}) {
+  const out = [];
+  if (platform === 'win32') {
+    out.push({ id: 'powershell', label: 'PowerShell', cmd: 'powershell.exe', args: ['-NoLogo'] });
+    if (have('pwsh.exe')) out.push({ id: 'pwsh', label: 'PowerShell 7', cmd: 'pwsh.exe', args: ['-NoLogo'] });
+    out.push({ id: 'cmd', label: 'Prompt de comando (CMD)', cmd: env.COMSPEC || 'cmd.exe', args: [] });
+    if (have('wsl.exe')) {
+      out.push({ id: 'wsl', label: 'WSL (distribuição padrão)', cmd: 'wsl.exe', args: ['--cd', '~'] });
+      const raw = String(run('wsl.exe', ['-l', '-q']) || '');
+      raw.split(/\r?\n/).map((x) => x.replace(/\0/g, '').trim()).filter((x) => x && /^[\w .-]{1,60}$/.test(x) && !/^docker-desktop/i.test(x))
+        .forEach((d) => out.push({ id: 'wsl:' + d, label: 'WSL: ' + d, cmd: 'wsl.exe', args: ['-d', d, '--cd', '~'] }));
+    }
+    for (const f of ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\bin\\bash.exe']) {
+      if (exists(f)) { out.push({ id: 'gitbash', label: 'Git Bash', cmd: f, args: ['--login', '-i'] }); break; }
+    }
+    return out;
+  }
+  const seen = new Set();
+  const add = (f) => { if (f && /^\/[\w/.+-]+$/.test(f) && !seen.has(f) && exists(f)) { seen.add(f); out.push({ id: f, label: f.split('/').pop() + ' (' + f + ')', cmd: f, args: [] }); } };
+  add(env.SHELL);
+  ['/bin/bash', '/bin/zsh', '/usr/bin/fish', '/bin/sh'].forEach(add);
+  return out;
+}
+
+const realHave = (c) => { try { return spawnSync(process.platform === 'win32' ? 'where' : 'which', [c], { stdio: 'ignore', windowsHide: true }).status === 0; } catch { return false; } };
+const realExists = (f) => { try { return require('fs').existsSync(f); } catch { return false; } };
+const realRun = (c, a) => { try { const r = spawnSync(c, a, { windowsHide: true, timeout: 4000 }); return r.stdout ? r.stdout.toString('utf16le') : ''; } catch { return ''; } };
+const availableShells = () => listShells({ have: realHave, exists: realExists, run: realRun });
+
+// só aceita um terminal que está na lista (nunca um comando livre vindo da tela)
+function resolveShell(id) {
+  if (!id) return null;
+  return availableShells().find((x) => x.id === id) || null;
+}
+
 class LocalShellSession {
   constructor({ host, cols, rows, onData, onClose, onStatus, ptyLib, shell }) {
     this.cols = cols || 80; this.rows = rows || 24;
@@ -58,4 +95,4 @@ class LocalShellSession {
   close() { this.closed = true; try { if (this.p) this.p.kill(); if (this.child) this.child.kill(); } catch { /* ignora */ } }
 }
 
-module.exports = { LocalShellSession, pickShell, loadPty };
+module.exports = { LocalShellSession, pickShell, loadPty, listShells, availableShells, resolveShell };

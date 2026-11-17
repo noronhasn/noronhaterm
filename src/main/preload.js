@@ -6,6 +6,7 @@ const EVENTS = new Set(['session:data', 'session:close', 'session:status', 'prom
 
 contextBridge.exposeInMainWorld('api', {
   version: () => inv('app:version'),
+  localShells: () => inv('local:shells'),
   changelog: () => inv('app:changelog'),
   updateCheck: () => inv('update:check'),
   openExternal: (url) => inv('app:openExternal', url),

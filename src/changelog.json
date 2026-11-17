@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.4.20",
+    "date": "2026-11-17",
+    "itens": [
+      "Terminal local: botão ▾ ao lado de 💻 Local escolhe o terminal (PowerShell, CMD, WSL com cada distribuição, Git Bash). O escolhido vira o padrão do botão."
+    ]
+  },
+  {
     "version": "0.4.19",
     "date": "2026-11-17",
     "itens": [
