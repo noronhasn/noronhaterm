@@ -61,7 +61,7 @@ class MacTelnetSession {
     this.ifaces = ifaces || interfaces;
     this.t = { startTimeout: 4000, resend: 700, resendMax: 8, keepalive: 10000, ...(timing || {}) };
     this.dec = new TextDecoder('utf-8');
-    this.out = 0; this.in = 0; this.queue = []; this.socks = []; this.closed = false;
+    this.out = 0; this.in = 0; this.queue = []; this.closed = false;
   }
 
   async start() {
@@ -78,39 +78,39 @@ class MacTelnetSession {
     if (!list.length) throw new Error('Nenhuma placa de rede IPv4 encontrada');
     this.key = crypto.randomBytes(2).readUInt16BE(0);
     this.onStatus('Procurando ' + this.host.address + ' pela rede local…');
+    // um único socket em 0.0.0.0: só assim o sistema entrega os broadcasts de resposta do equipamento
+    this.recs = list.map((itf) => ({ itf, src: macBytes(itf.mac) }));
     await new Promise((resolve, reject) => {
       this.fail = reject; this.ready = resolve;
-      let pending = list.length; let bound = 0; let lastErr = null;
-      for (const itf of list) {
-        let s;
-        try { s = this.createSocket({ type: 'udp4', reuseAddr: true }); } catch (e) { lastErr = e; pending--; continue; }
-        const rec = { s, itf, src: macBytes(itf.mac) };
-        this.socks.push(rec);
-        s.on('error', (e) => { lastErr = e; if (!this.chosen) { pending--; if (pending <= 0 && !bound) reject(new Error('Não consegui usar a porta ' + PORT + ': ' + (e.message || e))); } else if (rec === this.chosen) this._end('Erro de rede: ' + e.message); });
-        s.on('message', (m) => this._onPacket(rec, m));
-        s.bind({ port: PORT, address: itf.address, exclusive: false }, () => {
-          bound++;
-          try { s.setBroadcast(true); } catch { /* ignora */ }
-          this._sendRaw(rec, header(PT.START, rec.src, this.dst, this.key, 0));
-        });
-      }
-      if (pending <= 0) reject(lastErr || new Error('Sem rede'));
-      this.startTimer = setTimeout(() => { if (!this.chosen) reject(new Error('Equipamento não respondeu. Ele precisa estar na mesma rede local e com MAC-Telnet ativo (IP > Neighbors / Tools > MAC Server).')); }, this.t.startTimeout);
+      let sock;
+      try { sock = this.createSocket({ type: 'udp4', reuseAddr: true }); } catch (e) { reject(e); return; }
+      this.sock = sock;
+      sock.on('error', (e) => {
+        if (!this.chosen) reject(new Error('Não consegui usar a porta ' + PORT + ' (feche o WinBox ou libere no firewall): ' + (e.message || e)));
+        else this._end('Erro de rede: ' + e.message);
+      });
+      sock.on('message', (m) => this._onPacket(m));
+      sock.bind({ port: PORT, address: '0.0.0.0', exclusive: false }, () => {
+        try { sock.setBroadcast(true); } catch { /* ignora */ }
+        const ask = () => { if (!this.chosen) this.recs.forEach((r) => this._sendRaw(r, header(PT.START, r.src, this.dst, this.key, 0))); };
+        ask(); this.askTimer = setInterval(ask, 1000); if (this.askTimer.unref) this.askTimer.unref();
+      });
+      this.startTimer = setTimeout(() => { if (!this.chosen) reject(new Error('Equipamento não respondeu. Ele precisa estar na mesma rede local e com MAC-Telnet ativo (Tools > MAC Server), e o Firewall do Windows precisa liberar o NetDeck em redes privadas. Placas usadas: ' + this.recs.map((r) => r.itf.name + ' ' + r.itf.address).join(', ') + '.')); }, this.t.startTimeout);
     }).catch((e) => { this._cleanup(); throw e; });
     clearTimeout(this.startTimer);
   }
 
-  _sendRaw(rec, buf) { try { rec.s.send(buf, PORT, rec.itf.broadcast); } catch { /* ignora */ } }
+  _sendRaw(rec, buf) { try { this.sock.send(buf, PORT, rec.itf.broadcast); } catch { /* ignora */ } }
 
-  _onPacket(rec, msg) {
+  _onPacket(msg) {
     const p = parse(msg);
     if (!p || this.closed) return;
     if (!p.src.equals(this.dst) || p.key !== this.key) return;
+    const rec = this.recs.find((r) => r.src.equals(p.dst)); // a resposta vem endereçada ao MAC da placa que usamos
+    if (!rec) return;
     if (!this.chosen) {
       if (p.ptype !== PT.ACK && p.ptype !== PT.DATA) return;
-      this.chosen = rec; clearTimeout(this.startTimer);
-      this.socks.filter((x) => x !== rec).forEach((x) => { try { x.s.close(); } catch { /* ignora */ } });
-      this.socks = [rec];
+      this.chosen = rec; clearTimeout(this.startTimer); clearInterval(this.askTimer);
       this.onStatus('Equipamento encontrado pela placa ' + rec.itf.name + '. Autenticando…');
       this._enqueue(control(CP.BEGINAUTH));
       this.ka = setInterval(() => this._sendRaw(this.chosen, header(PT.ACK, this.chosen.src, this.dst, this.key, this.in)), this.t.keepalive);
@@ -176,10 +176,9 @@ class MacTelnetSession {
   _end(reason) { if (this.closed) return; this._cleanup(); this.onClose(reason || 'Encerrado'); }
   _cleanup() {
     const was = this.closed; this.closed = true;
-    clearTimeout(this.rt); clearTimeout(this.startTimer); clearInterval(this.ka);
+    clearTimeout(this.rt); clearTimeout(this.startTimer); clearInterval(this.ka); clearInterval(this.askTimer);
     if (this.chosen && !was) this._sendRaw(this.chosen, header(PT.END, this.chosen.src, this.dst, this.key, this.out));
-    this.socks.forEach((x) => { try { x.s.close(); } catch { /* ignora */ } });
-    this.socks = [];
+    if (this.sock) { try { this.sock.close(); } catch { /* ignora */ } this.sock = null; }
   }
   close() { this._cleanup(); }
 }

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.4.28",
+    "date": "2026-11-17",
+    "itens": [
+      "MAC-Telnet: corrigido o recebimento das respostas do equipamento (antes dava \"Equipamento não respondeu\" mesmo com ele na rede)",
+      "Mensagem de erro agora lista as placas de rede usadas, para facilitar o diagnóstico"
+    ]
+  },
+  {
     "version": "0.4.27",
     "date": "2026-11-17",
     "itens": [
