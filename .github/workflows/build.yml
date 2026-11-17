@@ -48,27 +48,6 @@ jobs:
             dist/*.AppImage
             dist/*.deb
 
-  macos:
-    name: macOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
-      - run: npm test
-      # sem assinatura da Apple: na primeira abertura use botão direito -> Abrir
-      # npmRebuild=false: usa o módulo da serial que já vem pronto para Mac (recompilar exige um Python antigo que o runner não tem)
-      - run: npx electron-builder --mac --publish never -c.npmRebuild=false
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: netdeck-macos
-          path: dist/*.dmg
-          compression-level: 0
-
   android:
     name: Android
     runs-on: ubuntu-22.04
@@ -111,11 +90,11 @@ jobs:
           name: netdeck-android
           path: NetDeck-Android-*.apk
 
-  # Ao criar uma tag (ex.: v0.4.17), junta tudo numa página pública de downloads (Releases)
+  # Ao criar uma tag (ex.: v0.4.18), junta tudo numa página pública de downloads (Releases)
   release:
     name: Publicar downloads
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [windows, linux, macos, android]
+    needs: [windows, linux, android]
     runs-on: ubuntu-22.04
     permissions:
       contents: write

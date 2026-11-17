@@ -18,8 +18,8 @@ Sem instalar nada no PC: no GitHub, aba **Actions → Build → Run workflow** g
 
 ### Linux
 
-- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.17.deb`
-- AppImage: `chmod +x NetDeck-0.4.17.AppImage && ./NetDeck-0.4.17.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.17.AppImage --no-sandbox`.
+- `.deb` (Ubuntu/Debian): `sudo apt install ./NetDeck-0.4.18.deb`
+- AppImage: `chmod +x NetDeck-0.4.18.AppImage && ./NetDeck-0.4.18.AppImage`. O atalho do `.deb` já abre com `--no-sandbox` (o Ubuntu 22.04+ bloqueia o modo de segurança do Electron e o app fechava ao clicar no ícone). No AppImage, se não abrir, use `./NetDeck-0.4.18.AppImage --no-sandbox`.
 - Portas abaixo de 1024 (TFTP 69, FTP 21) exigem root no Linux: nos servidores embutidos use portas altas (ex.: 6969 e 2121).
 - Serial: o `.deb` instala uma regra do sistema (udev `uaccess`) que libera `/dev/ttyUSB*` e `/dev/ttyACM*` para quem está logado, sem precisar de grupo. Se a porta já estava ligada, desligue e ligue o cabo USB uma vez.
 
@@ -110,10 +110,10 @@ Host com protocolo **FTP** (porta 21): duplo clique abre uma janela de pastas (e
 Botão **Aa** → *Tema da interface* → **Matrix**: interface verde sobre preto e terminal verde. Em *Chuva de código* escolha: só nas telas vazias, ou em toda a janela (fraca/média), atrás da lista e do terminal. Volta ao normal em *Padrão*.
 
 ## macOS
-A build gera `.dmg` para Apple Silicon (arm64) e Intel (x64): artefato `netdeck-macos`. O app não é assinado pela Apple: na primeira abertura, arraste para Aplicativos e abra com botão direito → Abrir (se ainda bloquear: `xattr -cr /Applications/NetDeck.app`). RDP precisa de um cliente instalado (ex.: `brew install freerdp`).
+A build do Mac foi desligada por enquanto (a configuração `build.mac` no package.json continua pronta; para voltar, recriar o job `macos` no workflow e rodar `electron-builder --mac --publish never -c.npmRebuild=false`).
 
 ## Ferramentas de rede
 Botão **🌐 Rede** na barra de cima: escolha o destino e **Ping**, **Traceroute** ou **MTR**; o resultado abre em uma aba nova. Usa os programas do sistema (`ping`, `tracert`/`traceroute`, `pathping`/`mtr`). Ctrl+C para; ↻ roda de novo. Não existe no Android.
 
 ## Publicar downloads
-`git tag v0.4.17` e `git push origin v0.4.17` fazem a build criar uma página **Releases** com os instaladores (Windows, Linux, Mac, Android) para baixar sem login. Rodar o workflow à mão continua gerando só os artefatos.
+`git tag v0.4.18` e `git push origin v0.4.18` fazem a build criar uma página **Releases** com os instaladores (Windows, Linux, Mac, Android) para baixar sem login. Rodar o workflow à mão continua gerando só os artefatos.
