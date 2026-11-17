@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.4.21",
+    "date": "2026-11-17",
+    "itens": [
+      "Mouse no terminal: selecionar já copia, e o botão direito cola (desligável em Aa).",
+      "Atalhos: Ctrl+L abre o terminal local; Ctrl+1 a Ctrl+5 vão para a aba 1 a 5; Ctrl+R reconecta quando a sessão caiu; Ctrl+Shift+R reconecta sempre.",
+      "Corrigido: o Ctrl+R padrão do Electron recarregava a janela e derrubava as conexões."
+    ]
+  },
+  {
     "version": "0.4.20",
     "date": "2026-11-17",
     "itens": [

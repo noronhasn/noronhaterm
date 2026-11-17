@@ -869,6 +869,23 @@ function startRain() {
 }
 applyUi(uiTheme());
 
+// Mouse no terminal: selecionar copia e o botão direito cola. Ligado por padrão; "Aa" desliga.
+const mouseCopy = () => { try { return localStorage.getItem('mouseCopy') !== '0'; } catch { return true; } };
+
+// Atalhos do NetDeck. Ctrl+L terminal local · Ctrl+1…5 abas · Ctrl+R reconecta (só se a sessão caiu; conectada, o Ctrl+R continua
+// sendo a busca de histórico do shell) · Ctrl+Shift+R reconecta sempre.
+function shortcutAction(e, pane) {
+  if (!e.ctrlKey || e.altKey || e.metaKey) return null;
+  const c = e.code;
+  if (e.shiftKey) return c === 'KeyR' ? 'reconnect' : null;
+  if (c === 'KeyL' && !MOBILE) return 'local';
+  const m = /^Digit([1-5])$/.exec(c || '');
+  if (m) return 'tab' + m[1];
+  if (c === 'KeyR') return pane && !pane.connected ? 'reconnect' : null;
+  return null;
+}
+const isAppShortcut = (e, pane) => !!shortcutAction(e, pane);
+
 // Fonte do terminal (botão "Aa"): família + tamanho + altura da linha, lembrados neste computador.
 const FONTS = ['Cascadia Mono', 'Cascadia Code', 'Consolas', 'Courier New', 'Lucida Console', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Hack', 'Ubuntu Mono', 'DejaVu Sans Mono'];
 const FONT_FALLBACK = "'DejaVu Sans Mono',Consolas,monospace";
@@ -923,6 +940,7 @@ $('#btnFont').onclick = async () => {
   const custom = h('input', { placeholder: 'ou digite o nome de outra fonte instalada' });
   const theme = sel(Object.entries(COLOR_THEMES).map(([k, v]) => [k, v[0]]), cur.theme);
   const ui = sel(Object.entries(UI_THEMES), uiTheme());
+  const mouse = h('input', { type: 'checkbox', checked: mouseCopy() });
   const rain = sel(Object.entries(RAIN_MODES), rainMode());
   const size = h('input', { type: 'number', min: '8', max: '40', step: '1' }); size.value = String(cur.size);
   const lh = h('input', { type: 'number', min: '1', max: '1.6', step: '0.05' }); lh.value = String(cur.lineHeight);
@@ -941,6 +959,7 @@ $('#btnFont').onclick = async () => {
   await dialog('Fonte e cores do terminal', [
     h('div', { class: 'grid2' }, field('Fonte', family), field('Outra fonte (opcional)', custom)),
     h('div', { class: 'grid2' }, field('Tamanho (8–40)', size), field('Altura da linha (1–1.6)', lh)),
+    h('label', { class: 'check' }, mouse, 'Mouse: copiar ao selecionar e colar com o botão direito'),
     field('Tema da interface', ui),
     field('Chuva de código (só no tema Matrix)', rain),
     field('Cores do texto e do fundo do terminal', theme),
@@ -952,6 +971,7 @@ $('#btnFont').onclick = async () => {
     { label: 'Aplicar', cls: 'primary', onClick: async (close) => {
       const f = sanitizeFont(read());
       if (ui.value === 'matrix' && uiTheme() !== 'matrix' && f.theme === 'padrao') f.theme = 'matrix'; // ao ligar o Matrix, o terminal também fica verde
+      try { localStorage.setItem('mouseCopy', mouse.checked ? '1' : '0'); } catch { /* ignora */ }
       applyRain(rain.value);
       applyUi(ui.value);
       applyFont(f); // aplica de novo para o terminal pegar a transparência certa
@@ -982,6 +1002,8 @@ function makePane({ name, protocol, hostId, adhoc }) {
   term.onData((d) => sendInput(pane, d));
   term.onResize(({ cols, rows }) => { if (pane.connected) api.resize(pane.sid, cols, rows); });
   term.attachCustomKeyEventHandler((e) => {
+    // atalhos do NetDeck: não vão para o shell (quem trata é o ouvinte da janela)
+    if (e.type === 'keydown' && e.ctrlKey && !e.altKey && !e.metaKey && isAppShortcut(e, pane)) return false;
     if (e.type === 'keydown' && e.ctrlKey && !e.shiftKey && !e.altKey) {
       if (e.key === '+' || e.key === '=') { zoomFont(1); return false; }
       if (e.key === '-') { zoomFont(-1); return false; }
@@ -992,10 +1014,16 @@ function makePane({ name, protocol, hostId, adhoc }) {
     if (e.code === 'KeyV') { navigator.clipboard.readText().then((t) => term.paste(t)); return false; }
     return true;
   });
-  el.addEventListener('contextmenu', async (e) => { // botão direito: copia se há seleção, senão cola
+  // mouse: selecionar já copia; botão direito sempre cola (desligável em "Aa"). Sem isso: direito copia a seleção ou cola.
+  el.addEventListener('mouseup', (e) => {
+    if (e.button === 0 && mouseCopy() && term.hasSelection()) navigator.clipboard.writeText(term.getSelection()).catch(() => {});
+  });
+  el.addEventListener('contextmenu', async (e) => {
     e.preventDefault();
-    if (term.hasSelection()) { await navigator.clipboard.writeText(term.getSelection()); term.clearSelection(); }
-    else term.paste(await navigator.clipboard.readText());
+    try {
+      if (!mouseCopy() && term.hasSelection()) { await navigator.clipboard.writeText(term.getSelection()); term.clearSelection(); }
+      else term.paste(await navigator.clipboard.readText());
+    } catch { /* sem permissão da área de transferência */ }
   });
   el.addEventListener('mousedown', () => focusPane(pane), true);
   el.addEventListener('wheel', (e) => { if (e.ctrlKey) { e.preventDefault(); zoomFont(e.deltaY < 0 ? 1 : -1); } }, { passive: false });
@@ -1422,13 +1450,7 @@ $('#btnBroadcast').onclick = () => {
   toast(broadcast ? 'Multi-exec LIGADO: o que você digitar vai para todos os painéis conectados' : 'Multi-exec desligado', true);
 };
 
-$('#btnReconnect').onclick = () => {
-  if (!activePane) return;
-  if (activePane.connected) api.close(activePane.sid);
-  activePane.term.writeln('');
-  connect(activePane);
-  activePane.term.focus();
-};
+$('#btnReconnect').onclick = () => reconnectActive();
 
 // Dividir o painel atual: Ctrl+Shift+D / E repetem o mesmo host; os botões ◫ ⬒ deixam ESCOLHER o host.
 const splitHere = (side) => {
@@ -1479,7 +1501,23 @@ topbarEl.addEventListener('click', (e) => {
 $('#btnSplitH').onclick = () => splitPick('right');
 $('#btnSplitV').onclick = () => splitPick('bottom');
 
+function reconnectActive() {
+  if (!activePane) return;
+  if (activePane.connected) api.close(activePane.sid);
+  activePane.term.writeln('');
+  connect(activePane);
+  activePane.term.focus();
+}
+
 window.addEventListener('keydown', (e) => {
+  const act = shortcutAction(e, activePane);
+  if (act) {
+    if (act === 'local') { const b = $('#btnLocal'); if (b && b.onclick) b.onclick(); }
+    else if (act === 'reconnect') reconnectActive();
+    else { const t = tabList[Number(act.slice(3)) - 1]; if (t) activate(t); }
+    e.preventDefault();
+    return;
+  }
   if (e.ctrlKey && e.shiftKey && e.code === 'KeyW' && activePane) { closePane(activePane); e.preventDefault(); }
   if (e.ctrlKey && e.shiftKey && e.code === 'KeyD' && activePane) { splitHere('right'); e.preventDefault(); }
   if (e.ctrlKey && e.shiftKey && e.code === 'KeyE' && activePane) { splitHere('bottom'); e.preventDefault(); }

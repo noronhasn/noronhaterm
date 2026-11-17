@@ -250,3 +250,49 @@ test('renderer: telas de backup automático e servidores TFTP/FTP abrem pelo men
   } finally { process.off('unhandledRejection', onRej); }
   assert.deepEqual(errors.map(String), []);
 });
+
+test('renderer: atalhos Ctrl+L, Ctrl+1…5 e Ctrl+R / Ctrl+Shift+R', async () => {
+  const errors = [];
+  const onRej = (e) => errors.push(e);
+  process.on('unhandledRejection', onRej);
+  try {
+    const t = setup();
+    await tick();
+    t.byId('#lockUser').value = 'u';
+    t.byId('#lockPass').value = 'senha-qualquer';
+    await t.byId('#lockForm')._handlers.submit[0](ev());
+    for (const a of ['root@10.0.0.1', 'root@10.0.0.2', 'root@10.0.0.3']) {
+      t.byId('#quickInput').value = a;
+      await t.byId('#quick')._handlers.submit[0](ev());
+      await tick();
+    }
+    assert.equal(t.log.open.length, 3);
+    const keydown = t.winListeners.keydown.at(-1);
+    const sid = () => t.ctx.__netdeck.activeSid();
+    let prevented = 0;
+    const key = (o) => keydown(ev({ ctrlKey: true, preventDefault() { prevented++; }, ...o }));
+
+    key({ code: 'Digit1' }); assert.equal(sid(), t.log.open[0].id);
+    key({ code: 'Digit2' }); assert.equal(sid(), t.log.open[1].id);
+    key({ code: 'Digit3' }); assert.equal(sid(), t.log.open[2].id);
+    key({ code: 'Digit5' }); assert.equal(sid(), t.log.open[2].id, 'não existe a aba 5: nada muda');
+    key({ code: 'Digit6' }); // só vão até 5; não deve ser tratado
+    assert.equal(prevented, 4);
+
+    const antes = t.log.open.length;
+    key({ code: 'KeyR' }); // sessão conectada: Ctrl+R fica para o shell (busca de histórico)
+    await tick();
+    assert.equal(t.log.open.length, antes);
+    assert.equal(prevented, 4, 'Ctrl+R com sessão conectada não é consumido');
+
+    key({ code: 'KeyR', shiftKey: true }); // Ctrl+Shift+R reconecta sempre
+    await tick(); await tick();
+    assert.equal(t.log.open.length, antes + 1);
+    assert.equal(t.log.open.at(-1).adhoc.address, '10.0.0.3');
+
+    key({ code: 'KeyL' }); // terminal local
+    await tick(); await tick();
+    assert.equal(t.log.open.at(-1).adhoc.protocol, 'local');
+    assert.equal(errors.length, 0, String(errors[0]));
+  } finally { process.off('unhandledRejection', onRej); }
+});

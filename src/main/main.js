@@ -4,7 +4,7 @@ for (const st of [process.stdout, process.stderr]) { try { st.on('error', () => 
 process.on('uncaughtException', (e) => {
   try { require('fs').appendFileSync(require('path').join(require('os').tmpdir(), 'netdeck-erro.log'), `${new Date().toISOString()} ${e && e.stack || e}\n`); } catch { /* ignora */ }
 });
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -42,6 +42,9 @@ const vaultFile = (u) => {
 const requireStore = () => { if (!store) throw new Error('Cofre bloqueado'); return store; };
 
 function createWindow() {
+  // sem o menu padrão do Electron: nele Ctrl+R recarrega a janela e derrubaria todas as conexões abertas
+  if (process.platform === 'darwin') Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]));
+  else Menu.setApplicationMenu(null);
   win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 900, minHeight: 560, backgroundColor: '#14161b', title: 'NetDeck', icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
