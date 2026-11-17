@@ -17,6 +17,7 @@ const { SerialSession, listPorts } = require('./serial');
 const { BackupScheduler, restoreVault } = require('./backup');
 const { Remember } = require('./remember');
 const rdp = require('./rdp');
+const { ToolSession } = require('./nettools');
 const { FtpClient } = require('./ftpclient');
 const { ServerManager } = require('./servers');
 const { SessionLogger } = require('./sessionlog');
@@ -108,7 +109,7 @@ function adhocHost(a) {
   const protocol = a.protocol || 'ssh';
   return {
     id: null, name: a.address || a.serial?.port || 'Conexão rápida', protocol, address: a.address, port: Number(a.port) || (protocol === 'telnet' ? 23 : 22),
-    serial: a.serial || null, jumpChain: [], startupCommands: [], forwards: [], telnetEnter: 'crlf',
+    tool: a.tool || null, serial: a.serial || null, jumpChain: [], startupCommands: [], forwards: [], telnetEnter: 'crlf',
     // sem senha informada, a conexão rápida pergunta a senha (não é salva em lugar nenhum)
     identity: a.username ? { username: a.username, password: a.password || '', privateKey: '', passphrase: '', useAgent: false } : null,
   };
@@ -121,10 +122,11 @@ function buildSession(resolved, cols, rows, id) {
     onClose: (reason) => { closeLog(id, reason); sessions.delete(id); send('session:close', id, reason); },
     onStatus: (msg) => { const l = logs.get(id); if (l) l.write('[' + msg + ']\r\n'); send('session:status', id, msg); },
   };
-  if (sessionLog) {
+  if (sessionLog && resolved.protocol !== 'tool') {
     const l = sessionLog.open({ name: resolved.name, address: resolved.address || (resolved.serial && resolved.serial.port), protocol: resolved.protocol });
     if (l) { logs.set(id, l); send('session:status', id, 'Gravando log em ' + l.file); }
   }
+  if (resolved.protocol === 'tool') return new ToolSession(common);
   if (resolved.protocol === 'telnet') return new TelnetSession(common);
   if (resolved.protocol === 'serial') return new SerialSession(common);
   return new SshSession({ ...common, hostKeys, prompt: askRenderer });

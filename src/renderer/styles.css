@@ -47,7 +47,7 @@ button.on { background: #5b2430; border-color: var(--danger); color: #ffb4ae; }
 .row .acts button { padding: 0 5px; border: none; background: none; color: var(--muted); }
 .row .acts button:hover { color: var(--text); }
 .badge { font-size: 10px; padding: 1px 5px; border-radius: 8px; background: #2a3142; color: var(--muted); text-transform: uppercase; }
-.badge.ssh { color: #7fd1ff; } .badge.telnet { color: #ffcf7f; } .badge.serial { color: #9be28f; } .badge.rdp { color: #d7a8ff; }
+.badge.ssh { color: #7fd1ff; } .badge.telnet { color: #ffcf7f; } .badge.serial { color: #9be28f; } .badge.rdp { color: #d7a8ff; } .badge.tool { color: #ff9ecb; }
 .children { margin-left: 14px; border-left: 1px solid var(--line); padding-left: 4px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .tag { font-size: 10px; color: var(--muted); }
@@ -171,3 +171,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 :root[data-ui="matrix"][data-rain="low"] .empty > *:not(.rain), :root[data-ui="matrix"][data-rain="mid"] .empty > *:not(.rain) { background: rgba(0, 0, 0, .82); }
 /* tela vazia no tema Matrix: só a chuva, sem textos */
 :root[data-ui="matrix"] .empty > *:not(.rain) { display: none; }
+/* chuva em toda a janela: sem fundo cinza nos painéis; a chuva aparece por trás de tudo, o texto ganha sombra para ler bem */
+:root[data-ui="matrix"][data-rain="low"], :root[data-ui="matrix"][data-rain="mid"] { --panel: rgba(0, 0, 0, .18); --panel2: rgba(0, 20, 4, .35); }
+:root[data-ui="matrix"][data-rain="low"] .sidebar, :root[data-ui="matrix"][data-rain="mid"] .sidebar,
+:root[data-ui="matrix"][data-rain="low"] .topbar, :root[data-ui="matrix"][data-rain="mid"] .topbar,
+:root[data-ui="matrix"][data-rain="low"] .status, :root[data-ui="matrix"][data-rain="mid"] .status { background: transparent; text-shadow: 0 0 3px #000, 0 0 6px #000; }

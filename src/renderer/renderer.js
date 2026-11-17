@@ -1548,6 +1548,29 @@ termsEl.addEventListener('drop', (e) => {
   if (!info.pane || info.zone === 'center') newTab(host); else splitOpen(info.pane, info.zone, host);
 });
 
+// ---------------------------------------------------------------- ferramentas de rede (ping / traceroute / MTR)
+const NET_TOOLS = [['ping', 'Ping contínuo (Ctrl+C para parar)'], ['trace', 'Traceroute (caminho até o destino)'], ['mtr', 'MTR (perda e latência por salto)']];
+if (MOBILE) $('#btnNet').remove();
+else {
+  $('#btnNet').onclick = async () => {
+    const ph = activePane && (activePane.hostId ? (hostById(activePane.hostId) || {}).address : (activePane.adhoc || {}).address);
+    const target = h('input', { value: ph || '', placeholder: 'IP ou nome, ex.: 8.8.8.8', autocomplete: 'off' });
+    const tool = sel(NET_TOOLS, 'ping');
+    const run = async (close) => {
+      const t = target.value.trim();
+      if (!t) throw new Error('Informe o IP ou nome do destino');
+      const label = { ping: 'Ping', trace: 'Trace', mtr: 'MTR' }[tool.value];
+      close(true);
+      newTab({ name: `${label} ${t}`, protocol: 'tool', adhoc: { protocol: 'tool', tool: tool.value, address: t } });
+    };
+    target.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const b = target.closest('dialog').querySelector('button.primary'); if (b) b.click(); } });
+    await dialog('Ferramentas de rede', [
+      field('Destino', target), field('Ferramenta', tool),
+      h('div', { class: 'muted' }, 'Usa os programas do próprio computador e abre o resultado em uma nova aba. Se faltar algum (traceroute, mtr), a aba mostra o que instalar. Ctrl+C na aba para parar; ↻ roda de novo.'),
+    ], [cancelBtn, { label: 'Executar', cls: 'primary', onClick: run }]);
+  };
+}
+
 // ---------------------------------------------------------------- SFTP
 $('#btnSftp').onclick = async () => {
   const tab = activePane;
