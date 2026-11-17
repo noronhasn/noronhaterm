@@ -114,3 +114,6 @@ A build gera `.dmg` para Apple Silicon (arm64) e Intel (x64): artefato `netdeck-
 
 ## Ferramentas de rede
 Botão **🌐 Rede** na barra de cima: escolha o destino e **Ping**, **Traceroute** ou **MTR**; o resultado abre em uma aba nova. Usa os programas do sistema (`ping`, `tracert`/`traceroute`, `pathping`/`mtr`). Ctrl+C para; ↻ roda de novo. Não existe no Android.
+
+## Publicar downloads
+`git tag v0.4.17` e `git push origin v0.4.17` fazem a build criar uma página **Releases** com os instaladores (Windows, Linux, Mac, Android) para baixar sem login. Rodar o workflow à mão continua gerando só os artefatos.
