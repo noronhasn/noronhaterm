@@ -185,8 +185,9 @@ function registerIpc() {
     if (store) { store.vault.lock(); store = null; }
     getUpdater().quitAndInstall(false, true);
   });
-  ipcMain.handle('app:openExternal', (_e, url) => { // só abre páginas do próprio projeto
-    if (typeof url !== 'string' || !url.startsWith('https://github.com/noronhasn/noronhaterm')) throw new Error('Endereço não permitido');
+  ipcMain.handle('app:openExternal', (_e, url) => { // só abre páginas do próprio projeto e o site noronhatech
+    const ok = typeof url === 'string' && (url.startsWith('https://github.com/noronhasn/noronhaterm') || /^https:\/\/www\.noronhatech\.net\.br(\/|$)/.test(url));
+    if (!ok) throw new Error('Endereço não permitido');
     return shell.openExternal(url);
   });
   ipcMain.handle('users:list', () => {

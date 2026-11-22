@@ -226,6 +226,8 @@ async function brandingDialog() {
     h('div', { class: 'muted', style: 'margin-top:10px' }, 'A foto é de cada usuário; o logo aparece na tela de login e na tela inicial. Ficam salvos só neste computador (fora do cofre).'),
   ], [{ label: 'Fechar', cls: 'primary', onClick: (c) => c(true) }]);
 }
+{ const sl = $('#siteLink'); // no computador abre no navegador do sistema; no Android o próprio link funciona
+  if (sl) sl.addEventListener('click', (e) => { if (!MOBILE && api.openExternal) { e.preventDefault(); api.openExternal('https://www.noronhatech.net.br/').catch((er) => toast(errMsg(er))); } }); }
 { const ww = $('#whoWrap'); if (ww) ww.onclick = brandingDialog; applyBranding(); }
 
 async function paintRemember() { // mostra a caixa "Lembrar" só quando o sistema consegue guardar a senha com segurança

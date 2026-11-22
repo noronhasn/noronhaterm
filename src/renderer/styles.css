@@ -91,6 +91,10 @@ body.resizing .term { pointer-events: none; }
 .drop-hint { position: absolute; z-index: 5; pointer-events: none; display: grid; place-items: center; background: rgba(79, 140, 255, .22); border: 2px dashed var(--accent); color: #cfe0ff; font-weight: 600; }
 .drop-hint[hidden] { display: none; }
 .empty { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; color: var(--muted); }
+.main { position: relative; }
+.sitelink { position: absolute; right: 12px; bottom: 4px; z-index: 5; font-size: 12px; color: var(--accent); text-decoration: none; opacity: .85; }
+.sitelink:hover { opacity: 1; text-decoration: underline; }
+:root[data-ui="matrix"] .sitelink { color: #1fdc50; text-shadow: 0 0 6px #1fdc50; }
 .status { padding: 3px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: var(--panel); min-height: 24px; }
 
 /* Diálogos */
