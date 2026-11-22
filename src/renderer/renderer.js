@@ -158,12 +158,76 @@ function enterApp(user) {
   $('#lockPass').value = ''; $('#lockPass2').value = '';
   $('#lock').hidden = true;
   $('#app').hidden = false;
-  $('#whoami').textContent = '👤 ' + user;
+  $('#whoami').textContent = user;
+  applyBranding();
   renderTree();
   resetIdle();
   activeTab && activate(activeTab);
   if (!noticesShown) { noticesShown = true; setTimeout(startupNotices, 900); }
 }
+// ---------------------------------------------------------------- foto do usuário e logo da empresa (ficam só neste computador)
+const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
+const lsSet = (k, v) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* ignora */ } };
+const avatarKey = () => 'avatar:' + (currentUser || '');
+function applyBranding() {
+  try {
+    const av = lsGet(avatarKey()); const logo = lsGet('companyLogo');
+    const img = $('#whoAvatar'); if (img) { if (av) img.src = av; img.hidden = !av; }
+    const who = $('#whoami'); if (who && !av && currentUser) who.textContent = '👤 ' + currentUser;
+    document.querySelectorAll('img.brandlogo').forEach((el) => { if (logo) el.src = logo; el.hidden = !logo; });
+  } catch { /* ignora */ }
+}
+function pickImage(box) { // escolhe um arquivo e devolve PNG reduzido (mantém transparência)
+  return new Promise((resolve, reject) => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0]; if (!f) return resolve(null);
+      if (f.size > 8 * 1024 * 1024) return reject(new Error('Imagem muito grande (máx. 8 MB)'));
+      const fr = new FileReader();
+      fr.onerror = () => reject(new Error('Não consegui ler a imagem'));
+      fr.onload = () => {
+        const im = new Image();
+        im.onerror = () => reject(new Error('Arquivo não é uma imagem válida'));
+        im.onload = () => {
+          const cv = document.createElement('canvas'); const c = cv.getContext('2d');
+          if (box.square) { // foto: recorta o centro em quadrado
+            const m = Math.min(im.width, im.height); cv.width = cv.height = box.w;
+            c.drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, box.w, box.w);
+          } else { const k = Math.min(1, box.w / im.width, box.h / im.height); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k)); c.drawImage(im, 0, 0, cv.width, cv.height); }
+          resolve(cv.toDataURL('image/png'));
+        };
+        im.src = fr.result;
+      };
+      fr.readAsDataURL(f);
+    };
+    inp.click();
+  });
+}
+async function brandingDialog() {
+  if (!currentUser) return;
+  const avPrev = h('img', { class: 'avatar-prev', alt: '' }); const lgPrev = h('img', { class: 'logo-prev', alt: '' });
+  const refresh = () => {
+    const av = lsGet(avatarKey()); const lg = lsGet('companyLogo');
+    avPrev.hidden = !av; if (av) avPrev.src = av; lgPrev.hidden = !lg; if (lg) lgPrev.src = lg; applyBranding();
+  };
+  const choose = (key, box, hint) => async () => {
+    try { const d = await pickImage(box); if (d) { lsSet(key(), d); refresh(); toast(hint); } } catch (e) { toast(errMsg(e)); }
+  };
+  refresh();
+  await dialog('Foto e logo', [
+    h('div', { style: 'display:grid;gap:6px;margin-bottom:14px' }, h('b', {}, 'Sua foto (' + currentUser + ')'), avPrev,
+      h('div', { style: 'display:flex;gap:6px' },
+        h('button', { type: 'button', onclick: choose(avatarKey, { square: true, w: 128 }, 'Foto atualizada') }, 'Escolher foto…'),
+        h('button', { type: 'button', onclick: () => { lsSet(avatarKey(), ''); refresh(); } }, 'Remover'))),
+    h('div', { style: 'display:grid;gap:6px' }, h('b', {}, 'Logo da empresa'), lgPrev,
+      h('div', { style: 'display:flex;gap:6px' },
+        h('button', { type: 'button', onclick: choose(() => 'companyLogo', { w: 440, h: 140 }, 'Logo atualizado') }, 'Escolher logo…'),
+        h('button', { type: 'button', onclick: () => { lsSet('companyLogo', ''); refresh(); } }, 'Remover'))),
+    h('div', { class: 'muted', style: 'margin-top:10px' }, 'A foto é de cada usuário; o logo aparece na tela de login e na tela inicial. Ficam salvos só neste computador (fora do cofre).'),
+  ], [{ label: 'Fechar', cls: 'primary', onClick: (c) => c(true) }]);
+}
+{ const ww = $('#whoWrap'); if (ww) ww.onclick = brandingDialog; applyBranding(); }
+
 async function paintRemember() { // mostra a caixa "Lembrar" só quando o sistema consegue guardar a senha com segurança
   const w = $('#lockRememberWrap');
   try {

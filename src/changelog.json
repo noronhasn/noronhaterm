@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.4.30",
+    "date": "2026-11-22",
+    "itens": [
+      "Foto do usuário: clique no seu nome (canto inferior da lateral) para escolher uma foto",
+      "Logo da empresa: aparece na tela de login e na tela inicial"
+    ]
+  },
+  {
+    "version": "0.4.29",
+    "date": "2026-11-17",
+    "itens": [
+      "MAC-Telnet: também envia para o broadcast geral (255.255.255.255), como o cliente original, para alcançar equipamentos pela rede local"
+    ]
+  },
+  {
     "version": "0.4.28",
     "date": "2026-11-17",
     "itens": [

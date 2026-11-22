@@ -14,6 +14,7 @@
   <div id="lock" class="lock">
     <canvas class="rain"></canvas>
     <form id="lockForm" class="lock-card" autocomplete="off">
+      <img class="brandlogo" alt="" hidden>
       <div class="logo">⌁ NetDeck <span class="ver" data-ver></span></div>
       <p class="muted" id="lockHint">Escolha o usuário e digite a senha.</p>
       <label>Usuário
@@ -46,7 +47,7 @@
       </div>
       <div id="tree" class="tree"></div>
       <div class="side-foot">
-        <span id="whoami" class="muted"></span>
+        <span id="whoWrap" class="whowrap" title="Clique para trocar sua foto e o logo da empresa"><img id="whoAvatar" class="avatar" alt="" hidden><span id="whoami" class="muted"></span></span>
         <span>
           <button id="btnMore" title="Mais opções">⋯</button>
           <button id="btnFont" title="Fonte do terminal">Aa</button>
@@ -73,6 +74,7 @@
       <div id="terms" class="terms">
         <div id="empty" class="empty">
           <canvas class="rain"></canvas>
+          <img class="brandlogo" alt="" hidden>
           <div class="logo big">⌁ NetDeck</div>
           <div class="muted ver" data-ver></div>
           <p>Dê duplo clique em um host, ou use a conexão rápida acima.</p>

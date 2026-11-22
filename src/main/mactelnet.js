@@ -100,7 +100,10 @@ class MacTelnetSession {
     clearTimeout(this.startTimer);
   }
 
-  _sendRaw(rec, buf) { try { this.sock.send(buf, PORT, rec.itf.broadcast); } catch { /* ignora */ } }
+  _sendRaw(rec, buf) { // broadcast da placa e broadcast geral (o cliente original usa o geral)
+    const dests = [rec.itf.broadcast]; if (rec.itf.broadcast !== '255.255.255.255') dests.push('255.255.255.255');
+    for (const d of dests) { try { this.sock.send(buf, PORT, d); } catch { /* ignora */ } }
+  }
 
   _onPacket(msg) {
     const p = parse(msg);
